@@ -110,7 +110,7 @@ inline static FLOAT8 mask_add(FLOAT8 m1,FLOAT8 m2,int k,int b, lame_internal_fla
 }
 
 int L3psycho_anal( lame_global_flags * gfp,
-                    const sample_t *buffer[2], int gr_out, 
+                    sample_t *buffer[2],int gr_out , 
                     FLOAT8 *ms_ratio,
                     FLOAT8 *ms_ratio_next,
 		    FLOAT8 *ms_ener_ratio,
@@ -187,7 +187,7 @@ int L3psycho_anal( lame_global_flags * gfp,
     case  8000: samplerate *= 2; break;  /* kludge so mpeg2.5 uses mpeg2 tables  for now */
     case 11025: samplerate *= 2; break;
     case 12000: samplerate *= 2; break;
-    default:    ERRORF("error, invalid sampling frequency: %d Hz\a\n",
+    default:    ERRORF("error, invalid sampling frequency: %d Hz\n",
 			gfp->out_samplerate);
     return -1;
     }
@@ -337,20 +337,11 @@ int L3psycho_anal( lame_global_flags * gfp,
 
   
   
-  numchn = gfc->channels_out;
+  numchn = gfc->stereo;
   /* chn=2 and 3 = Mid and Side channels */
   if (gfp->mode == MPG_MD_JOINT_STEREO) numchn=4;
 
   if (gfc->nsPsy.use) {
-#ifdef KLEMM_04
-    static const sample_t fircoef[] = {
-      0,-0.00851586, 0  , 0.0209036,
-      0,-0.0438162 , 0  , 0.0931738,
-      0,-0.313819  , 0.5,-0.313819,
-      0, 0.0931738 , 0  ,-0.0438162,
-      0, 0.0209036 , 0  ,-0.00851586,
-    };
-#else    
     static const FLOAT fircoef[] = {
       -8.65163e-18,-0.00851586,-6.74764e-18, 0.0209036,
       -3.36639e-17,-0.0438162 ,-1.54175e-17, 0.0931738,
@@ -359,15 +350,11 @@ int L3psycho_anal( lame_global_flags * gfp,
       -3.36639e-17, 0.0209036 ,-6.74764e-18,-0.00851586,
       -8.65163e-18,
     };
-#endif
 
-    for(chn=0;chn<gfc->channels_out;chn++)
+
+    for(chn=0;chn<gfc->stereo;chn++)
       {
-#ifdef KLEMM_04
-	sample_t firbuf [576 + 576/3 + NSFIRLEN];
-#else      
 	FLOAT firbuf[576+576/3+NSFIRLEN];
-#endif	
 
 	/* apply high pass filter of fs/4 */
 	
@@ -375,16 +362,12 @@ int L3psycho_anal( lame_global_flags * gfp,
 	  firbuf[i+NSFIRLEN] = buffer[chn][576-350+(i)];
 
 	for(i=0;i<576+576/3-NSFIRLEN;i++)
-#ifdef KLEMM_04
-	    ns_hpfsmpl [chn] [i] = scalar20 ( fircoef, firbuf+i );
-#else
           {
 	    FLOAT sum = 0;
 	    for(j=0;j<NSFIRLEN;j++)
 	      sum += fircoef[j] * firbuf[i+j];
 	    ns_hpfsmpl[chn][i] = sum;
 	  }
-#endif	    
 
 	for(;i<576+576/3;i++)
 	  ns_hpfsmpl[chn][i] = 0;
@@ -1203,12 +1186,12 @@ int L3psycho_anal( lame_global_flags * gfp,
    * determine final block type
    ***************************************************************/
 
-  for (chn=0; chn<gfc->channels_out; chn++) {
+  for (chn=0; chn<gfc->stereo; chn++) {
     blocktype[chn] = NORM_TYPE;
   }
 
 
-  if (gfc->channels_out==2) {
+  if (gfc->stereo==2) {
     if (!gfp->allow_diff_short || gfp->mode==MPG_MD_JOINT_STEREO) {
       /* force both channels to use the same block type */
       /* this is necessary if the frame is to be encoded in ms_stereo.  */
@@ -1225,7 +1208,7 @@ int L3psycho_anal( lame_global_flags * gfp,
   
   /* update the blocktype of the previous granule, since it depends on what
    * happend in this granule */
-  for (chn=0; chn<gfc->channels_out; chn++) {
+  for (chn=0; chn<gfc->stereo; chn++) {
     if ( uselongblock[chn])
       {				/* no attack : use long blocks */
 	assert( gfc->blocktype_old[chn] != START_TYPE );

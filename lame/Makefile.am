@@ -24,6 +24,7 @@ EXTRA_DIST = \
 	lame.spec.in \
 	lame4dos.bat \
 	mlame \
+	mlame_corr.c \
 	testcase.mp3 \
 	testcase.wav
 
