@@ -44,18 +44,6 @@
 #endif
 
 
-
-#ifdef _WIN32
-#  include <windows.h>
-#  define msleep(t) Sleep(t)
-#else
-#  include <unistd.h>
-#  define msleep(t) usleep((t) * 1000)
-#endif
-
-
-
-
 /*! Stringify \a x. */
 #define STR(x)   #x
 /*! Stringify \a x, perform macro expansion. */
@@ -556,24 +544,22 @@ void plot_frame(void)
 
     /* draw some hash marks showing scalefactor bands */
     if (gtkinfo.sfblines) {
-        int fac,nsfb, *scalefac;
-            if (blocktype[gr][ch]==SHORT_TYPE) {
-            nsfb=SBMAX_s;
-            i = nsfb-7;
-            fac=3;
-            scalefac = gfc->scalefac_band.s;
-        }else{
-            nsfb=SBMAX_l;
-            i = nsfb-10;
-            fac=1;
-            scalefac = gfc->scalefac_band.l;
-        }
-        for ( ; i<nsfb; i++) {
-            ycord[0] = .8*ymx;  ycord[1] = ymn;
-            xcord[0] = fac*scalefac[i];
-            xcord[1] = xcord[0];
-            gpk_rectangle_draw(mdctbox[gr],xcord,ycord,xmn,ymn,xmx,ymx,&yellow);
-        }
+      int fac,nsfb, *scalefac;
+      if (blocktype[gr][ch]==SHORT_TYPE) {
+	nsfb=SBMAX_s;
+	fac=3;
+	scalefac = gfc->scalefac_band.s;
+      }else{
+	nsfb=SBMAX_l;
+	fac=1;
+	scalefac = gfc->scalefac_band.l;
+      }
+      for (i=nsfb-7 ; i<nsfb; i++) {
+	ycord[0] = .8*ymx;  ycord[1] = ymn;
+	xcord[0] = fac*scalefac[i];
+	xcord[1] = xcord[0];
+	gpk_rectangle_draw(mdctbox[gr],xcord,ycord,xmn,ymn,xmx,ymx,&yellow);
+      }
     }   
 
 
@@ -698,7 +684,7 @@ void plot_frame(void)
       /* en = max energy difference amoung the 3 short FFTs for this granule */
       en = pplot->ers[gr][ch];
       if (en>999) en=999;
-      sprintf(title2,"FFT%1i pe=%5.2fK/%3.1f \nnoise over_b:%i/max:%3.1f/over:%3.1f/tot:%3.1f/var:%3.1f",gr,
+      sprintf(title2,"FFT%1i pe=%5.2fK/%3.1f n=%i/%3.1f/%3.1f/%3.1f/%3.1f",gr,
 	      pplot->pe[gr][ch]/1000,en,pplot->over[gr][ch],
 	      pplot->max_noise[gr][ch],
 	      pplot->over_noise[gr][ch],
@@ -901,9 +887,6 @@ static int frameadv1(GtkWidget *widget, gpointer   data )
     if (gtkinfo.pupdate) plot_frame();
     update_progress();
     if ((idle_count>=idle_count_max) && (! idle_end)) analyze();
-  } else {
-        /*no processing to do, sleep in order to not monopolize CPU*/
-        msleep(10);
   }
   return 1;
 }

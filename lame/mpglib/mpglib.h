@@ -45,9 +45,7 @@ typedef struct mpstr_tag {
 	real synth_buffs[2][2][0x110];
         int  synth_bo;
         int  sync_bitstream;
-
-    int bitindex;
-    unsigned char* wordpointer;	
+	
 } MPSTR, *PMPSTR;
 
 

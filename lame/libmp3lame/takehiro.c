@@ -86,7 +86,6 @@ static const struct
  *********************************************************************/
 
 
-
 #ifdef TAKEHIRO_IEEE754_HACK
 
 typedef union {
@@ -98,98 +97,203 @@ typedef union {
 #define MAGIC_INT 0x4b000000
 
 
-void quantize_lines_xrpow(int l, FLOAT istep, const FLOAT* xp, int* pi)
+static void quantize_xrpow(const FLOAT8 *xp, int *pi, FLOAT8 istep, gr_info * const cod_info, calc_noise_data* prev_noise)
 {
+    /* quantize on xr^(3/4) instead of xr */
     fi_union *fi;
-    int remaining;
+    int sfb;
+    int sfbmax;
+    int j=0;
+    int prev_data_use;
 
-    assert (l>0);
+    /* bad way to check if global_gain is unchanged
+    since last call.
+    It might also be possible to re-use previous data
+    even when global_gain is changed */
+    prev_data_use = (prev_noise && 
+                    (cod_info->block_type != SHORT_TYPE) && 
+                    (POW20(cod_info->global_gain) == prev_noise->step[21]));
 
     fi = (fi_union *)pi;
 
-    l = l>>1;
-    remaining = l%2;
-    l = l>>1;
-    while (l--) {
-	    double x0 = istep * xp[0];
-	    double x1 = istep * xp[1];
-	    double x2 = istep * xp[2];
-	    double x3 = istep * xp[3];
+    if (cod_info->block_type == SHORT_TYPE)
+        sfbmax = 38;
+    else 
+        sfbmax = 21;
 
-	    x0 += MAGIC_FLOAT; fi[0].f = x0;
-	    x1 += MAGIC_FLOAT; fi[1].f = x1;
-	    x2 += MAGIC_FLOAT; fi[2].f = x2;
-	    x3 += MAGIC_FLOAT; fi[3].f = x3;
+    for (sfb = 0; sfb <= sfbmax; sfb++) {
+	    FLOAT8 step = -1;
 
-	    fi[0].f = x0 + (adj43asm - MAGIC_INT)[fi[0].i];
-	    fi[1].f = x1 + (adj43asm - MAGIC_INT)[fi[1].i];
-	    fi[2].f = x2 + (adj43asm - MAGIC_INT)[fi[2].i];
-	    fi[3].f = x3 + (adj43asm - MAGIC_INT)[fi[3].i];
+        if (prev_data_use) {
+            int s =
+	            cod_info->global_gain
+	            - ((cod_info->scalefac[sfb] + (cod_info->preflag ? pretab[sfb] : 0))
+	               << (cod_info->scalefac_scale + 1))
+	            - cod_info->subblock_gain[cod_info->window[sfb]] * 8;
+	        step = POW20(s);
+        }
+        assert( cod_info->width[sfb] >= 0 );
+        if (prev_data_use && (prev_noise->step[sfb] == step)){
+            /* do not recompute this part*/
+            fi += cod_info->width[sfb];
+            xp += cod_info->width[sfb];
+        } else {
+            int l;
+            int remaining;
+            l = cod_info->width[sfb] >> 1;
 
-	    fi[0].i -= MAGIC_INT;
-	    fi[1].i -= MAGIC_INT;
-	    fi[2].i -= MAGIC_INT;
-	    fi[3].i -= MAGIC_INT;
-	    fi += 4;
-	    xp += 4;
-    };
-    if (remaining) {
-	    double x0 = istep * xp[0];
-	    double x1 = istep * xp[1];
+            if ((j+cod_info->width[sfb])>cod_info->max_nonzero_coeff) {
+                int usefullsize;
+                usefullsize = cod_info->max_nonzero_coeff - j +1;
+                memset(&pi[cod_info->max_nonzero_coeff],0,
+                    sizeof(int)*(576-cod_info->max_nonzero_coeff));
+                l = usefullsize >> 1;
 
-	    x0 += MAGIC_FLOAT; fi[0].f = x0;
-	    x1 += MAGIC_FLOAT; fi[1].f = x1;
+                /* no need to compute higher sfb values */
+                sfb = sfbmax + 1;
+            }
+            if ( l <= 0 ) {
+                /*  rh: 20040215
+                 *  may happen due to "prev_data_use" optimization 
+                 */
+                break;  /* ends for-loop */
+            }
 
-	    fi[0].f = x0 + (adj43asm - MAGIC_INT)[fi[0].i];
-	    fi[1].f = x1 + (adj43asm - MAGIC_INT)[fi[1].i];
+            remaining = l%2;
+            l = l>>1;
+            while (l--) {
+	            double x0 = istep * xp[0];
+	            double x1 = istep * xp[1];
+	            double x2 = istep * xp[2];
+	            double x3 = istep * xp[3];
 
-	    fi[0].i -= MAGIC_INT;
-	    fi[1].i -= MAGIC_INT;
+	            x0 += MAGIC_FLOAT; fi[0].f = x0;
+	            x1 += MAGIC_FLOAT; fi[1].f = x1;
+	            x2 += MAGIC_FLOAT; fi[2].f = x2;
+	            x3 += MAGIC_FLOAT; fi[3].f = x3;
+
+	            fi[0].f = x0 + (adj43asm - MAGIC_INT)[fi[0].i];
+	            fi[1].f = x1 + (adj43asm - MAGIC_INT)[fi[1].i];
+	            fi[2].f = x2 + (adj43asm - MAGIC_INT)[fi[2].i];
+	            fi[3].f = x3 + (adj43asm - MAGIC_INT)[fi[3].i];
+
+	            fi[0].i -= MAGIC_INT;
+	            fi[1].i -= MAGIC_INT;
+	            fi[2].i -= MAGIC_INT;
+	            fi[3].i -= MAGIC_INT;
+	            fi += 4;
+	            xp += 4;
+            };
+            if (remaining) {
+	            double x0 = istep * xp[0];
+	            double x1 = istep * xp[1];
+
+	            x0 += MAGIC_FLOAT; fi[0].f = x0;
+	            x1 += MAGIC_FLOAT; fi[1].f = x1;
+
+	            fi[0].f = x0 + (adj43asm - MAGIC_INT)[fi[0].i];
+	            fi[1].f = x1 + (adj43asm - MAGIC_INT)[fi[1].i];
+
+	            fi[0].i -= MAGIC_INT;
+	            fi[1].i -= MAGIC_INT;
+	            fi += 2;
+	            xp += 2;
+            }
+        }
+        if (sfb <= sfbmax)
+            j += cod_info->width[sfb];
     }
-
 }
-
 
 #  define ROUNDFAC -0.0946
-void quantize_lines_xrpow_ISO(int l, FLOAT istep, const FLOAT* xp, int* pi)
+static void quantize_xrpow_ISO(const FLOAT8 *xp, int *pi, FLOAT8 istep, gr_info * const cod_info, calc_noise_data* prev_noise)
 {
+    /* quantize on xr^(3/4) instead of xr */
     fi_union *fi;
-    int remaining;
+    int sfb;
+    int sfbmax;
+    int j=0;
+    int prev_data_use;
 
-    assert (l>0);
+    /* bad way to check if global_gain is unchanged
+    since last call.
+    It might also be possible to re-use previous data
+    even when global_gain is changed */
+    prev_data_use = (prev_noise && 
+                    (cod_info->block_type != SHORT_TYPE) && 
+                    (POW20(cod_info->global_gain) == prev_noise->step[21]));
 
     fi = (fi_union *)pi;
 
-    l = l>>1;
-    remaining = l%2;
-    l = l>>1;
-    while (l--) {
-	        fi[0].f = istep * xp[0] + (ROUNDFAC + MAGIC_FLOAT);
-	        fi[1].f = istep * xp[1] + (ROUNDFAC + MAGIC_FLOAT);
-	        fi[2].f = istep * xp[2] + (ROUNDFAC + MAGIC_FLOAT);
-	        fi[3].f = istep * xp[3] + (ROUNDFAC + MAGIC_FLOAT);
+    if (cod_info->block_type == SHORT_TYPE)
+        sfbmax = 38;
+    else 
+        sfbmax = 21;
 
-	        fi[0].i -= MAGIC_INT;
-	        fi[1].i -= MAGIC_INT;
-	        fi[2].i -= MAGIC_INT;
-	        fi[3].i -= MAGIC_INT;
-	        fi+=4;
-	        xp+=4;
-    };
-    if (remaining) {
-	        fi[0].f = istep * xp[0] + (ROUNDFAC + MAGIC_FLOAT);
-	        fi[1].f = istep * xp[1] + (ROUNDFAC + MAGIC_FLOAT);
+    for (sfb = 0; sfb <= sfbmax; sfb++) {
+	    FLOAT8 step = -1;
 
-	        fi[0].i -= MAGIC_INT;
-	        fi[1].i -= MAGIC_INT;
+        if (prev_data_use) {
+            int s =
+	            cod_info->global_gain
+	            - ((cod_info->scalefac[sfb] + (cod_info->preflag ? pretab[sfb] : 0))
+	               << (cod_info->scalefac_scale + 1))
+	            - cod_info->subblock_gain[cod_info->window[sfb]] * 8;
+	        step = POW20(s);
+        }
+        assert( cod_info->width[sfb] >= 0 );
+        
+        if (prev_data_use && (prev_noise->step[sfb] == step)){
+            /* do not recompute this part*/
+            fi += cod_info->width[sfb];
+            xp += cod_info->width[sfb];
+        } else {
+            int l;
+            int remaining;
+
+            l = cod_info->width[sfb] >> 1;
+
+            if ((j+cod_info->width[sfb])>cod_info->max_nonzero_coeff) {
+                int usefullsize;
+                usefullsize = cod_info->max_nonzero_coeff - j +1;
+                memset(&pi[cod_info->max_nonzero_coeff],0,
+                    sizeof(int)*(575-cod_info->max_nonzero_coeff));
+                l = usefullsize >> 1;
+            }
+            if ( l <= 0 ) {
+                /*  rh: 20040215
+                 *  may happen due to "prev_data_use" optimization 
+                 */
+                break;  /* ends for-loop */
+            }
+            remaining = l%2;
+            l = l>>1;
+            while (l--) {
+	            fi[0].f = istep * xp[0] + (ROUNDFAC + MAGIC_FLOAT);
+	            fi[1].f = istep * xp[1] + (ROUNDFAC + MAGIC_FLOAT);
+	            fi[2].f = istep * xp[2] + (ROUNDFAC + MAGIC_FLOAT);
+	            fi[3].f = istep * xp[3] + (ROUNDFAC + MAGIC_FLOAT);
+
+	            fi[0].i -= MAGIC_INT;
+	            fi[1].i -= MAGIC_INT;
+	            fi[2].i -= MAGIC_INT;
+	            fi[3].i -= MAGIC_INT;
+	            fi+=4;
+	            xp+=4;
+            };
+            if (remaining) {
+	            fi[0].f = istep * xp[0] + (ROUNDFAC + MAGIC_FLOAT);
+	            fi[1].f = istep * xp[1] + (ROUNDFAC + MAGIC_FLOAT);
+
+	            fi[0].i -= MAGIC_INT;
+	            fi[1].i -= MAGIC_INT;
+	            fi+=2;
+	            xp+=2;
+            }
+        }
+        j += cod_info->width[sfb];
     }
-
 }
-
-
-
-
-
 
 #else
 
@@ -210,117 +314,16 @@ void quantize_lines_xrpow_ISO(int l, FLOAT istep, const FLOAT* xp, int* pi)
 #define ROUNDFAC 0.4054
 
 
-void quantize_lines_xrpow(int l, FLOAT istep, const FLOAT* xr, int* ix)
-{
-    int remaining;
 
-    assert (l>0);
-
-    l = l>>1;
-    remaining = l%2;
-    l = l>>1;
-    while (l--) {
-	    FLOAT	x0, x1, x2, x3;
-	    int	rx0, rx1, rx2, rx3;
-
-        x0 = *xr++ * istep;
-	    x1 = *xr++ * istep;
-	    XRPOW_FTOI(x0, rx0);
-	    x2 = *xr++ * istep;
-	    XRPOW_FTOI(x1, rx1);
-	    x3 = *xr++ * istep;
-	    XRPOW_FTOI(x2, rx2);
-	    x0 += QUANTFAC(rx0);
-	    XRPOW_FTOI(x3, rx3);
-	    x1 += QUANTFAC(rx1);
-	    XRPOW_FTOI(x0,*ix++);
-	    x2 += QUANTFAC(rx2);
-	    XRPOW_FTOI(x1,*ix++);
-	    x3 += QUANTFAC(rx3);
-	    XRPOW_FTOI(x2,*ix++);
-	    XRPOW_FTOI(x3,*ix++);
-    };
-    if (remaining) {
-	    FLOAT	x0, x1;
-	    int	rx0, rx1;
-
-        x0 = *xr++ * istep;
-	    x1 = *xr++ * istep;
-	    XRPOW_FTOI(x0, rx0);
-	    XRPOW_FTOI(x1, rx1);
-	    x0 += QUANTFAC(rx0);
-	    x1 += QUANTFAC(rx1);
-	    XRPOW_FTOI(x0,*ix++);
-	    XRPOW_FTOI(x1,*ix++);
-    }
-
-}
-
-
-
-void quantize_lines_xrpow_ISO(int l, FLOAT istep, const FLOAT* xr, int* ix)
-{
-
-    const FLOAT compareval0 = (1.0 - 0.4054)/istep;
-    const FLOAT compareval1 = (2.0 - 0.4054)/istep;
-
-    assert (l>0);
-
-    /* depending on architecture, it may be worth calculating a few more
-    compareval's.
-
-    eg.  compareval1 = (2.0 - 0.4054)/istep;
-    .. and then after the first compare do this ...
-    if compareval1>*xr then ix = 1;
-
-    On a pentium166, it's only worth doing the one compare (as done here),
-    as the second compare becomes more expensive than just calculating
-    the value. Architectures with slow FP operations may want to add some
-    more comparevals. try it and send your diffs statistically speaking
-
-    73% of all xr*istep values give ix=0
-    16% will give 1
-    4%  will give 2
-    */
-    if (compareval0 > *xr) {
-        *(ix++) = 0;
-        xr++;
-    } else if (compareval1 > *xr) {
-        *(ix++) = 1;
-        xr++;
-    } else {
-        /*    *(ix++) = (int)( istep*(*(xr++))  + 0.4054); */
-        XRPOW_FTOI(  istep*(*(xr++))  + ROUNDFAC , *(ix++) );
-    }
-
-}
-
-
-
-
-#endif
-
-
-
-/*********************************************************************
- * Quantization function
- * This function will select which lines to quantize and call the
- * proper quantization function
- *********************************************************************/
-
-static void quantize_xrpow(const FLOAT *xp, int *pi, FLOAT istep, gr_info * const cod_info, calc_noise_data* prev_noise, lame_internal_flags * const gfc)
+static void quantize_xrpow(const FLOAT8 *xr, int *ix, FLOAT8 istep, gr_info * const cod_info, calc_noise_data* prev_noise)
 {
     /* quantize on xr^(3/4) instead of xr */
     int sfb;
     int sfbmax;
     int j=0;
     int prev_data_use;
-    int *iData;
-    int accumulate=0;
-    int *acc_iData;
-    FLOAT *acc_xp;
-
-    iData = pi;
+    int *out;
+    out = ix;
 
     /* bad way to check if global_gain is unchanged
     since last call.
@@ -330,13 +333,14 @@ static void quantize_xrpow(const FLOAT *xp, int *pi, FLOAT istep, gr_info * cons
                     (cod_info->block_type != SHORT_TYPE) && 
                     (POW20(cod_info->global_gain) == prev_noise->step[21]));
 
+
     if (cod_info->block_type == SHORT_TYPE)
         sfbmax = 38;
     else 
         sfbmax = 21;
 
     for (sfb = 0; sfb <= sfbmax; sfb++) {
-	    FLOAT step = -1;
+	    FLOAT8 step = -1;
 
         if (prev_data_use) {
             int s =
@@ -347,74 +351,172 @@ static void quantize_xrpow(const FLOAT *xp, int *pi, FLOAT istep, gr_info * cons
 	        step = POW20(s);
         }
         assert( cod_info->width[sfb] >= 0 );
+
         if (prev_data_use && (prev_noise->step[sfb] == step)){
-            /* do not recompute this part,
-               but compute accumulated lines */
-            if (accumulate) {
-                gfc->quantize_lines_xrpow(accumulate, istep, acc_xp, acc_iData);
-                accumulate = 0;
-            }
-        } else { /*should compute this part*/
+            /* do not recompute this part */
+            xr += cod_info->width[sfb];
+            ix += cod_info->width[sfb];
+        } else {
             int l;
-            l = cod_info->width[sfb];
+            int remaining;
+
+            l = cod_info->width[sfb] >> 1;
 
             if ((j+cod_info->width[sfb])>cod_info->max_nonzero_coeff) {
-                /*do not compute upper zero part*/
                 int usefullsize;
                 usefullsize = cod_info->max_nonzero_coeff - j +1;
-                memset(&pi[cod_info->max_nonzero_coeff],0,
-                    sizeof(int)*(576-cod_info->max_nonzero_coeff));
-                l = usefullsize;
-
-                /* no need to compute higher sfb values */
-                sfb = sfbmax + 1;
+                memset(&out[cod_info->max_nonzero_coeff],0,
+                    sizeof(int)*(575-cod_info->max_nonzero_coeff));
+                l = usefullsize >> 1;
             }
-
-            /*accumulate lines to quantize*/
-            if (!accumulate) {
-                acc_iData = iData;
-                acc_xp = xp;
-            }
-            accumulate += l;
-
             if ( l <= 0 ) {
                 /*  rh: 20040215
                  *  may happen due to "prev_data_use" optimization 
                  */
-                if (accumulate) {
-                    gfc->quantize_lines_xrpow(accumulate, istep, acc_xp, acc_iData);
-                    accumulate = 0;
-                }
-
                 break;  /* ends for-loop */
             }
-        }
-        if (sfb <= sfbmax) {
-            iData += cod_info->width[sfb];
-            xp += cod_info->width[sfb];
-            j += cod_info->width[sfb];
-        }
-    }
-    if (accumulate) { /*last data part*/
-        gfc->quantize_lines_xrpow(accumulate, istep, acc_xp, acc_iData);
-        accumulate = 0;
-    }
+            remaining = l%2;
+            l = l>>1;
+            while (l--) {
+	            FLOAT8	x0, x1, x2, x3;
+	            int	rx0, rx1, rx2, rx3;
 
+                x0 = *xr++ * istep;
+	            x1 = *xr++ * istep;
+	            XRPOW_FTOI(x0, rx0);
+	            x2 = *xr++ * istep;
+	            XRPOW_FTOI(x1, rx1);
+	            x3 = *xr++ * istep;
+	            XRPOW_FTOI(x2, rx2);
+	            x0 += QUANTFAC(rx0);
+	            XRPOW_FTOI(x3, rx3);
+	            x1 += QUANTFAC(rx1);
+	            XRPOW_FTOI(x0,*ix++);
+	            x2 += QUANTFAC(rx2);
+	            XRPOW_FTOI(x1,*ix++);
+	            x3 += QUANTFAC(rx3);
+	            XRPOW_FTOI(x2,*ix++);
+	            XRPOW_FTOI(x3,*ix++);
+            };
+            if (remaining) {
+	            FLOAT8	x0, x1;
+	            int	rx0, rx1;
+
+                x0 = *xr++ * istep;
+	            x1 = *xr++ * istep;
+	            XRPOW_FTOI(x0, rx0);
+	            XRPOW_FTOI(x1, rx1);
+	            x0 += QUANTFAC(rx0);
+	            x1 += QUANTFAC(rx1);
+	            XRPOW_FTOI(x0,*ix++);
+	            XRPOW_FTOI(x1,*ix++);
+            }
+        }
+        j += cod_info->width[sfb];
+    }
 }
 
 
 
 
-void quantize_init (lame_internal_flags * const gfc)
+
+
+static void quantize_xrpow_ISO(const FLOAT8 *xr, int *ix, FLOAT8 istep, gr_info * const cod_info, calc_noise_data* prev_noise)
 {
-    if (gfc->quantization)
-        gfc->quantize_lines_xrpow = quantize_lines_xrpow;
-    else
-        gfc->quantize_lines_xrpow = quantize_lines_xrpow_ISO;
+    /* quantize on xr^(3/4) instead of xr */
+    int sfb;
+    int sfbmax;
+    int j=0;
+    int prev_data_use;
+    int *out;
+    const FLOAT8 compareval0 = (1.0 - 0.4054)/istep;
+    const FLOAT8 compareval1 = (2.0 - 0.4054)/istep;
+    out = ix;
+
+    /* bad way to check if global_gain is unchanged
+    since last call.
+    It might also be possible to re-use previous data
+    even when global_gain is changed */
+    prev_data_use = (prev_noise && 
+                    (cod_info->block_type != SHORT_TYPE) && 
+                    (POW20(cod_info->global_gain) == prev_noise->step[21]));
+
+
+    if (cod_info->block_type == SHORT_TYPE)
+        sfbmax = 38;
+    else 
+        sfbmax = 21;
+
+    for (sfb = 0; sfb <= sfbmax; sfb++) {
+	    FLOAT8 step = -1;
+
+        if (prev_data_use) {
+            int s =
+	            cod_info->global_gain
+	            - ((cod_info->scalefac[sfb] + (cod_info->preflag ? pretab[sfb] : 0))
+	               << (cod_info->scalefac_scale + 1))
+	            - cod_info->subblock_gain[cod_info->window[sfb]] * 8;
+	        step = POW20(s);
+        }
+        assert( cod_info->width[sfb] >= 0 );
+        
+        if (prev_data_use && (prev_noise->step[sfb] == step)){
+            /* do not recompute this part */
+            xr += cod_info->width[sfb];
+            ix += cod_info->width[sfb];
+        } else {
+            int l;
+            l = cod_info->width[sfb];
+
+            if ((j+cod_info->width[sfb])>cod_info->max_nonzero_coeff) {
+                int usefullsize;
+                usefullsize = cod_info->max_nonzero_coeff - j +1;
+                memset(&out[cod_info->max_nonzero_coeff],0,
+                    sizeof(int)*(575-cod_info->max_nonzero_coeff));
+                l = usefullsize;
+            }
+            if ( l <= 0 ) {
+                /*  rh: 20040215
+                 *  may happen due to "prev_data_use" optimization 
+                 */
+                break;  /* ends for-loop */
+            }
+            while(l--) {
+                /* depending on architecture, it may be worth calculating a few more
+                   compareval's.
+
+                   eg.  compareval1 = (2.0 - 0.4054)/istep;
+                   .. and then after the first compare do this ...
+                   if compareval1>*xr then ix = 1;
+
+                   On a pentium166, it's only worth doing the one compare (as done here),
+                   as the second compare becomes more expensive than just calculating
+                   the value. Architectures with slow FP operations may want to add some
+                   more comparevals. try it and send your diffs statistically speaking
+
+                   73% of all xr*istep values give ix=0
+                   16% will give 1
+                   4%  will give 2
+                */
+	            if (compareval0 > *xr) {
+	                *(ix++) = 0;
+	                xr++;
+	            } else if (compareval1 > *xr) {
+	                *(ix++) = 1;
+	                xr++;
+	            } else {
+	                /*    *(ix++) = (int)( istep*(*(xr++))  + 0.4054); */
+	                XRPOW_FTOI(  istep*(*(xr++))  + ROUNDFAC , *(ix++) );
+	            }
+            };
+        }
+        j += cod_info->width[sfb];
+    }
 }
 
 
 
+#endif
 
 
 /*************************************************************************/
@@ -751,7 +853,7 @@ int noquant_count_bits(
 
 int count_bits(
           lame_internal_flags * const gfc, 
-    const FLOAT  * const xr,
+    const FLOAT8  * const xr,
           gr_info * const gi,
           calc_noise_data* prev_noise
 	  )
@@ -759,17 +861,20 @@ int count_bits(
     int *const ix = gi->l3_enc;
 
     /* since quantize_xrpow uses table lookup, we need to check this first: */
-    FLOAT w = (IXMAX_VAL) / IPOW20(gi->global_gain);
+    FLOAT8 w = (IXMAX_VAL) / IPOW20(gi->global_gain);
 
     if (gi->xrpow_max > w)
         return LARGE_BITS;    
 
-	quantize_xrpow(xr, ix, IPOW20(gi->global_gain), gi, prev_noise, gfc);
+    if (gfc->quantization) 
+	    quantize_xrpow(xr, ix, IPOW20(gi->global_gain), gi, prev_noise);
+    else
+	    quantize_xrpow_ISO(xr, ix, IPOW20(gi->global_gain), gi, prev_noise);
 
     if (gfc->substep_shaping & 2) {
 	int sfb, j = 0;
 	/* 0.634521682242439 = 0.5946*2**(.5*0.1875) */
-	const FLOAT roundfac =
+	const FLOAT8 roundfac =
 	    0.634521682242439 / IPOW20(gi->global_gain+gi->scalefac_scale);
 	for (sfb = 0; sfb < gi->sfbmax; sfb++) {
 	    int width = gi->width[sfb];

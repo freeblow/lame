@@ -48,8 +48,7 @@ BOOL InitMP3( PMPSTR mp)
 	mp->head = mp->tail = NULL;
 	mp->fr.single = -1;
 	mp->bsnum = 0;
-	mp->wordpointer = mp->bsspace[mp->bsnum] + 512;
-    mp->bitindex = 0;
+	wordpointer = mp->bsspace[mp->bsnum] + 512;
 	mp->synth_bo = 1;
 	mp->sync_bitstream = 1;
 
@@ -173,8 +172,7 @@ static void read_head(PMPSTR mp)
 
 
 
-static void
-copy_mp(PMPSTR mp,int size,unsigned char *ptr) 
+void copy_mp(PMPSTR mp,int size,unsigned char *ptr) 
 {
   int len = 0;
 
@@ -210,8 +208,7 @@ copy_mp(PMPSTR mp,int size,unsigned char *ptr)
 /* bytes = number of bytes before MPEG header.  skip this many bytes */
 /* before starting to read */
 /* return value: number of bytes in VBR header, including syncword */
-static int
-check_vbr_header(PMPSTR mp,int bytes)
+int check_vbr_header(PMPSTR mp,int bytes)
 {
   int i,pos;
   struct buf *buf=mp->tail;
@@ -260,8 +257,7 @@ check_vbr_header(PMPSTR mp,int bytes)
 
 
 
-static int
-sync_buffer(PMPSTR mp,int free_match) 
+int sync_buffer(PMPSTR mp,int free_match) 
 {
   /* traverse mp structure without modifing pointers, looking
    * for a frame valid header.
@@ -339,8 +335,9 @@ sync_buffer(PMPSTR mp,int free_match)
 
 
 
-static int
-decodeMP3_clipchoice( PMPSTR mp,unsigned char *in,int isize,char *out,int *done,      
+
+int decodeMP3_clipchoice( PMPSTR mp,unsigned char *in,int isize,char *out,
+		           int osize,int *done,      
                            int (*synth_1to1_mono_ptr)(PMPSTR,real *,unsigned char *,int *),
                            int (*synth_1to1_ptr)(PMPSTR,real *,int,unsigned char *, int *) )
 {
@@ -401,14 +398,14 @@ decodeMP3_clipchoice( PMPSTR mp,unsigned char *in,int isize,char *out,int *done,
                 mp->sync_bitstream=1;
 		
 		/* skip some bytes, buffer the rest */
-		size = (int) (mp->wordpointer - (mp->bsspace[mp->bsnum]+512));
+		size = (int) (wordpointer - (mp->bsspace[mp->bsnum]+512));
 		
 		if (size > MAXFRAMESIZE) {
 		    /* wordpointer buffer is trashed.  probably cant recover, but try anyway */
 		    fprintf(stderr,"mpglib: wordpointer trashed.  size=%i (%i)  bytes=%i \n",
 			    size,MAXFRAMESIZE,bytes);		  
 		    size=0;
-		    mp->wordpointer = mp->bsspace[mp->bsnum]+512;
+		    wordpointer = mp->bsspace[mp->bsnum]+512;
 		}
 		
 		/* buffer contains 'size' data right now 
@@ -420,7 +417,7 @@ decodeMP3_clipchoice( PMPSTR mp,unsigned char *in,int isize,char *out,int *done,
 		    read_buf_byte(mp);
 		}
 		
-		copy_mp(mp,bytes,mp->wordpointer);
+		copy_mp(mp,bytes,wordpointer);
 		mp->fsizeold += bytes;
 	    }
 	    
@@ -438,8 +435,8 @@ decodeMP3_clipchoice( PMPSTR mp,unsigned char *in,int isize,char *out,int *done,
 		mp->ssize += 2;
 	    
 	    mp->bsnum = 1-mp->bsnum; /* toggle buffer */
-	    mp->wordpointer = mp->bsspace[mp->bsnum] + 512;
-	    mp->bitindex = 0;
+	    wordpointer = mp->bsspace[mp->bsnum] + 512;
+	    bitindex = 0;
 	    
 	    /* for very first header, never parse rest of data */
 	    if (mp->fsizeold==-1)
@@ -455,11 +452,11 @@ decodeMP3_clipchoice( PMPSTR mp,unsigned char *in,int isize,char *out,int *done,
                 if (mp->bsize < mp->ssize) 
 		  return MP3_NEED_MORE;
 
-		copy_mp(mp,mp->ssize,mp->wordpointer);
+		copy_mp(mp,mp->ssize,wordpointer);
 
 		if(mp->fr.error_protection)
-		  getbits(mp,16);
-		bits=do_layer3_sideinfo(mp);
+		  getbits(16);
+		bits=do_layer3_sideinfo(&mp->fr);
 		/* bits = actual number of bits needed to parse this frame */
 		/* can be negative, if all bits needed are in the reservoir */
 		if (bits<0) bits=0;
@@ -495,7 +492,7 @@ decodeMP3_clipchoice( PMPSTR mp,unsigned char *in,int isize,char *out,int *done,
 				return MP3_NEED_MORE;
 		}
 
-		copy_mp(mp,mp->dsize,mp->wordpointer);
+		copy_mp(mp,mp->dsize,wordpointer);
 
 		*done = 0;
 
@@ -505,7 +502,7 @@ decodeMP3_clipchoice( PMPSTR mp,unsigned char *in,int isize,char *out,int *done,
 #ifdef USE_LAYER_1
 			case 1:
 				if(mp->fr.error_protection)
-					getbits(mp,16);
+					getbits(16);
 
 				do_layer1(mp,(unsigned char *) out,done);
 			break;
@@ -513,7 +510,7 @@ decodeMP3_clipchoice( PMPSTR mp,unsigned char *in,int isize,char *out,int *done,
 #ifdef USE_LAYER_2
 			case 2:
 				if(mp->fr.error_protection)
-					getbits(mp,16);
+					getbits(16);
 
 				do_layer2(mp,(unsigned char *) out,done);
 			break;
@@ -525,7 +522,7 @@ decodeMP3_clipchoice( PMPSTR mp,unsigned char *in,int isize,char *out,int *done,
 				fprintf(stderr,"invalid layer %d\n",mp->fr.lay);
 		}
 
-		mp->wordpointer = mp->bsspace[mp->bsnum] + 512 + mp->ssize + mp->dsize;
+		wordpointer = mp->bsspace[mp->bsnum] + 512 + mp->ssize + mp->dsize;
 
 		mp->data_parsed=1;
 		iret=MP3_OK;
@@ -560,10 +557,10 @@ decodeMP3_clipchoice( PMPSTR mp,unsigned char *in,int isize,char *out,int *done,
 
 	if (bytes>0) {
 	  int size;
-	  copy_mp(mp,bytes,mp->wordpointer);
-	  mp->wordpointer += bytes;
+	  copy_mp(mp,bytes,wordpointer);
+	  wordpointer += bytes;
 
-	  size = (int) (mp->wordpointer - (mp->bsspace[mp->bsnum]+512));
+	  size = (int) (wordpointer - (mp->bsspace[mp->bsnum]+512));
 	  if (size > MAXFRAMESIZE) {
 	    fprintf(stderr,"fatal error.  MAXFRAMESIZE not large enough.\n");
 	  }
@@ -590,7 +587,7 @@ int decodeMP3( PMPSTR mp,unsigned char *in,int isize,char *out,
 	}
 
 	/* passing pointers to the functions which clip the samples */
-	return decodeMP3_clipchoice(mp, in, isize, out, done, synth_1to1_mono, synth_1to1);
+	return decodeMP3_clipchoice(mp, in, isize, out, osize, done, synth_1to1_mono, synth_1to1);
 }	
 
 int decodeMP3_unclipped( PMPSTR mp,unsigned char *in,int isize,char *out,
@@ -603,7 +600,7 @@ int decodeMP3_unclipped( PMPSTR mp,unsigned char *in,int isize,char *out,
 	}
 
 	/* passing pointers to the functions which don't clip the samples */
-	return decodeMP3_clipchoice(mp, in, isize, out, done, synth_1to1_mono_unclipped, synth_1to1_unclipped);
+	return decodeMP3_clipchoice(mp, in, isize, out, osize, done, synth_1to1_mono_unclipped, synth_1to1_unclipped);
 }	
 
 

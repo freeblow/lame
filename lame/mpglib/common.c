@@ -44,6 +44,10 @@ const long freqs[9] = { 44100, 48000, 32000,
                         22050, 24000, 16000,
                         11025, 12000,  8000 };
 
+int bitindex;
+unsigned char *wordpointer;
+unsigned char *pcm_sample;
+int pcm_point = 0;
 
 
 #if defined( USE_LAYER_1 ) || defined ( USE_LAYER_2 )
@@ -253,48 +257,48 @@ void print_header_compact(struct frame *fr)
 
 #endif
 
-unsigned int getbits(PMPSTR mp, int number_of_bits)
+unsigned int getbits(int number_of_bits)
 {
   unsigned long rval;
 
-  if (number_of_bits <= 0 || !mp->wordpointer)
+  if (number_of_bits <= 0 || !wordpointer)
     return 0;
 
   {
-    rval = mp->wordpointer[0];
+    rval = wordpointer[0];
     rval <<= 8;
-    rval |= mp->wordpointer[1];
+    rval |= wordpointer[1];
     rval <<= 8;
-    rval |= mp->wordpointer[2];
-    rval <<= mp->bitindex;
+    rval |= wordpointer[2];
+    rval <<= bitindex;
     rval &= 0xffffff;
 
-    mp->bitindex += number_of_bits;
+    bitindex += number_of_bits;
 
     rval >>= (24-number_of_bits);
 
-    mp->wordpointer += (mp->bitindex>>3);
-    mp->bitindex &= 7;
+    wordpointer += (bitindex>>3);
+    bitindex &= 7;
   }
   return rval;
 }
 
-unsigned int getbits_fast(PMPSTR mp, int number_of_bits)
+unsigned int getbits_fast(int number_of_bits)
 {
   unsigned long rval;
 
   {
-    rval = mp->wordpointer[0];
+    rval = wordpointer[0];
     rval <<= 8;	
-    rval |= mp->wordpointer[1];
-    rval <<= mp->bitindex;
+    rval |= wordpointer[1];
+    rval <<= bitindex;
     rval &= 0xffff;
-    mp->bitindex += number_of_bits;
+    bitindex += number_of_bits;
 
     rval >>= (16-number_of_bits);
 
-    mp->wordpointer += (mp->bitindex>>3);
-    mp->bitindex &= 7;
+    wordpointer += (bitindex>>3);
+    bitindex &= 7;
   }
   return rval;
 }
@@ -309,10 +313,10 @@ int set_pointer( PMPSTR mp, long backstep)
     return MP3_ERR; 
   }
   bsbufold = mp->bsspace[1-mp->bsnum] + 512;
-  mp->wordpointer -= backstep;
+  wordpointer -= backstep;
   if (backstep)
-    memcpy(mp->wordpointer,bsbufold+mp->fsizeold-backstep,(size_t)backstep);
-  mp->bitindex = 0;
+    memcpy(wordpointer,bsbufold+mp->fsizeold-backstep,(size_t)backstep);
+  bitindex = 0;
   return MP3_OK;
 }
 

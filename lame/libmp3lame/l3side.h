@@ -39,8 +39,8 @@ typedef struct
 
 
 typedef struct {
-    FLOAT	l[SBMAX_l];
-    FLOAT	s[SBMAX_s][3];
+    FLOAT8	l[SBMAX_l];
+    FLOAT8	s[SBMAX_s][3];
 } III_psy_xmin;
 
 typedef struct {
@@ -49,10 +49,10 @@ typedef struct {
 } III_psy_ratio;
 
 typedef struct {
-    FLOAT xr[576];
+    FLOAT8 xr[576];
     int l3_enc[576];
     int scalefac[SFBMAX];
-    FLOAT xrpow_max;
+    FLOAT8 xrpow_max;
 
     int part2_3_length;
     int big_values;
