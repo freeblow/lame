@@ -465,6 +465,7 @@ int  long_help ( const lame_global_flags* gfp, FILE* const fp, const char* Progr
               "  PSY related:\n"
               "    --short         use short blocks when appropriate\n"
               "    --noshort       do not use short blocks\n"
+              "    --mixedblock    use mixed blocks\n"
               "    --allshort      use only short blocks\n"
               "    --cwlimit <freq>  compute tonality up to freq (in kHz) default 8.8717\n"
 #if 0
@@ -595,8 +596,7 @@ int  display_bitrates ( FILE* const fp )
     suggestion:  lame --preset <file-name> ...
             or:  lame --preset my-setting  ... and my-setting is defined in lame.ini
  */
-
-
+ 
 /*
 Note from GB on 08/25/2002:
 I am merging --presets and --alt-presets. Old presets are now aliases for
@@ -614,7 +614,6 @@ presets instead of the old unmaintained ones.
 * PURPOSE:  Writes presetting info to #stdout#
 *
 ************************************************************************/
-
 
 
 static void  presets_longinfo_dm ( FILE* msgfp )
@@ -698,6 +697,14 @@ static void  presets_longinfo_dm ( FILE* msgfp )
 }
 
 
+static void  presets_info_r3mix ( FILE* msgfp )
+{
+    fprintf( msgfp, "\n"
+             "r3mix- VBR preset for steady quality with little excess:\n"
+             "    --preset r3mix\n" );
+}
+
+#if 0
 static void  presets_info_dm ( FILE* msgfp )
 {
     fprintf( msgfp, "\n"
@@ -712,14 +719,6 @@ static void  presets_info_dm ( FILE* msgfp )
 }
 
 
-static void  presets_info_r3mix ( FILE* msgfp )
-{
-    fprintf( msgfp, "\n"
-             "r3mix- VBR preset for steady quality with little excess:\n"
-             "    --preset r3mix\n" );
-}
-
-
 static void  presets_info_head ( FILE* msgfp )
 {
     fputc( '\n', msgfp );
@@ -729,7 +728,6 @@ static void  presets_info_head ( FILE* msgfp )
              "Several separate collections of preset profiles are available.\n"
         );
 }
-
 
 /* briefly and concisely display all available presets
 */
@@ -752,6 +750,7 @@ static void  presets_longinfo ( FILE* msgfp )
     fprintf( msgfp, hr );
     presets_info_r3mix( msgfp );
 }
+#endif
 
 
 static const char presets_set_err_unk[] = "ERROR, unknown --preset profile: ";
@@ -838,15 +837,14 @@ static int  presets_set( lame_t gfp, int fast, int cbr, const char* preset_name,
 
 
     if (strcmp(preset_name, "medium") == 0) {
-
-        if (fast > 0)
-           lame_set_preset(gfp, MEDIUM_FAST);
+	if (fast > 0)
+	    lame_set_preset(gfp, MEDIUM_FAST);
         else
-           lame_set_preset(gfp, MEDIUM);
+	    lame_set_preset(gfp, MEDIUM);
 
-        return 0;
+	return 0;
     }
-    
+
     if (strcmp(preset_name, "standard") == 0) {
 
         if (fast > 0)
@@ -883,9 +881,9 @@ static int  presets_set( lame_t gfp, int fast, int cbr, const char* preset_name,
             if (cbr == 1 )
                 lame_set_VBR(gfp, vbr_off);
 
-            if (mono == 1 ) {
-                lame_set_mode(gfp, MONO);
-            }
+	    if (mono == 1 ) {
+		lame_set_mode(gfp, MONO);
+	    }
 
             return 0;
 
@@ -903,8 +901,6 @@ static int  presets_set( lame_t gfp, int fast, int cbr, const char* preset_name,
             return -1;
         }
     }
-
-
 
     lame_version_print ( stderr );
     fprintf(stderr,"Error: You did not enter a valid profile and/or options with --preset\n"
@@ -1183,6 +1179,9 @@ char* const inPath, char* const outPath, char **nogap_inPath, int *num_nogap)
                 T_ELIF ("noshort")
                     (void) lame_set_no_short_blocks( gfp, 1 );
                 
+                T_ELIF ("mixedblock")
+                    (void) lame_set_use_mixed_blocks( gfp, 2);
+                
                 T_ELIF ("short")
                     (void) lame_set_no_short_blocks( gfp, 0 );
                 
@@ -1202,7 +1201,6 @@ char* const inPath, char* const outPath, char **nogap_inPath, int *num_nogap)
                 
                 T_ELIF ("nores")
                     lame_set_disable_reservoir(gfp,1);
-                    lame_set_padding_type(gfp, PAD_NO);
                 
                 T_ELIF ("strictly-enforce-ISO")
                     lame_set_strict_ISO(gfp,1);

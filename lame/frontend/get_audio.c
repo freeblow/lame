@@ -1445,7 +1445,7 @@ OpenSndFile(lame_global_flags * gfp, char *inPath)
 static int
 check_aid(const unsigned char *header)
 {
-    return 0 == strncmp(header, "AiD\1", 4);
+    return 0 == memcmp(header, "AiD\1", 4);
 }
 
 /*
@@ -1478,7 +1478,7 @@ is_syncword_mp123(const void *const headerptr)
             return 0;
     return 1;
 }
-
+#if 0
 static int
 is_syncword_mp3(const void *const headerptr)
 {
@@ -1498,7 +1498,7 @@ is_syncword_mp3(const void *const headerptr)
         return 0;       // no sample frequency with (32,44.1,48)/(1,2,4)    
     return 1;
 }
-
+#endif
 
 int
 lame_decode_initfile(FILE * fd, mp3data_struct * mp3data)

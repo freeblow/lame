@@ -28,7 +28,6 @@
 #define PRECOMPUTE
 
 #include "util.h"
-#include "tools.h"
 #include <ctype.h>
 #include <assert.h>
 #include <stdarg.h>
@@ -192,39 +191,6 @@ FLOAT8 freq2cbw(FLOAT8 freq)
 
 
 
-/***********************************************************************
- * compute bitsperframe and mean_bits for a layer III frame 
- **********************************************************************/
-void getframebits(const lame_global_flags * gfp, int *bitsPerFrame, int *mean_bits) 
-{
-  lame_internal_flags *gfc=gfp->internal_flags;
-  int  whole_SpF;  /* integral number of Slots per Frame without padding */
-  int  bit_rate;
-  
-  /* get bitrate in kbps [?] */
-  if (gfc->bitrate_index) 
-    bit_rate = bitrate_table[gfp->version][gfc->bitrate_index];
-  else
-    bit_rate = gfp->brate;
-  assert ( bit_rate <= 550 );
-  
-  // bytes_per_frame = bitrate * 1000 / ( gfp->out_samplerate / (gfp->version == 1  ?  1152  :  576 )) / 8;
-  // bytes_per_frame = bitrate * 1000 / gfp->out_samplerate * (gfp->version == 1  ?  1152  :  576 ) / 8;
-  // bytes_per_frame = bitrate * ( gfp->version == 1  ?  1152/8*1000  :  576/8*1000 ) / gfp->out_samplerate;
-  
-  whole_SpF = (gfp->version+1)*72000*bit_rate / gfp->out_samplerate;
-  
-  /* main encoding routine toggles padding on and off */
-  /* one Layer3 Slot consists of 8 bits */
-  *bitsPerFrame = 8 * (whole_SpF + gfc->padding);
-  
-  // sideinfo_len
-  *mean_bits = (*bitsPerFrame - 8*gfc->sideinfo_len) / gfc->mode_gr;
-}
-
-
-
-
 #define ABS(A) (((A)>0) ? (A) : -(A))
 
 int FindNearestBitrate(
@@ -374,8 +340,9 @@ void fill_buffer(lame_global_flags *gfp,
 		mfbuf[1][gfc->mf_size + i] = in_buffer[1][i];
 	}
     }
-
 }
+    
+
 
 
 int fill_buffer_resample(
@@ -626,73 +593,6 @@ int  has_SIMD2 ( void )
 #endif
 }    
 
-/***********************************************************************
- *
- *  some simple statistics
- *
- *  bitrate index 0: free bitrate -> not allowed in VBR mode
- *  : bitrates, kbps depending on MPEG version
- *  bitrate index 15: forbidden
- *
- *  mode_ext:
- *  0:  LR
- *  1:  LR-i
- *  2:  MS
- *  3:  MS-i
- *
- ***********************************************************************/
- 
-void updateStats( lame_internal_flags * const gfc )
-{
-    assert ( gfc->bitrate_index < 16u );
-    assert ( gfc->mode_ext      <  4u );
-    
-    /* count bitrate indices */
-    gfc->bitrate_stereoMode_Hist [gfc->bitrate_index] [4] ++;
-    
-    /* count 'em for every mode extension in case of 2 channel encoding */
-    if (gfc->channels_out == 2)
-        gfc->bitrate_stereoMode_Hist [gfc->bitrate_index] [gfc->mode_ext]++;
-}
-
-
-
-/*  caution: a[] will be resorted!!
- */
-int select_kth_int(int a[], int N, int k)
-{
-    int i, j, l, r, v, w;
-    
-    l = 0;
-    r = N-1;
-    while (r > l) {
-        v = a[r];
-        i = l-1;
-        j = r;
-        for (;;) {
-            while (a[++i] < v) /*empty*/;
-            while (a[--j] > v) /*empty*/;
-            if (i >= j) 
-                break;
-            /* swap i and j */
-            w = a[i];
-            a[i] = a[j];
-            a[j] = w;
-        }
-        /* swap i and r */
-        w = a[i];
-        a[i] = a[r];
-        a[r] = w;
-        if (i >= k) 
-            r = i-1;
-        if (i <= k) 
-            l = i+1;
-    }
-    return a[k];
-}
-
-
-
 void disable_FPE(void) {
 /* extremly system dependent stuff, move to a lib to make the code readable */
 /*==========================================================================*/
@@ -839,15 +739,18 @@ ieee754_float32_t fast_log2(ieee754_float32_t x)
   int i = *(int*)&x;
   ieee754_float32_t log2val;
   int mantisse = i & 0x7FFFFF;
-  int exponent = i & 0x7F800000;
-  ieee754_float32_t partial = (mantisse & ((1<<(23-LOG2_SIZE_L2))-1)) * (1.0f/((1<<(23-LOG2_SIZE_L2))));
+  ieee754_float32_t partial;
+
+  log2val = ((i>>23) & 0xFF)-0x7f;
+  partial = (mantisse & ((1<<(23-LOG2_SIZE_L2))-1));
+  partial *= 1.0f/((1<<(23-LOG2_SIZE_L2)));
 
 
   mantisse >>= (23-LOG2_SIZE_L2);
-  log2val = (exponent>>23)-0x7f;
 
   /* log2val += log_table[mantisse];  without interpolation the results are not good */
   log2val += log_table[mantisse] * (1.0f-partial) + log_table[mantisse+1]*partial;
+
   return log2val;
 }
 

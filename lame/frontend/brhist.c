@@ -25,6 +25,8 @@
 #include <config.h>
 #endif
 
+#ifdef BRHIST
+
 /* basic #define's */
 
 #ifndef BRHIST_WIDTH
@@ -54,13 +56,14 @@ char *strchr (), *strrchr ();
 
 
 #if defined(HAVE_TERMCAP)
-#include <curses.h>
-#include <term.h>
-#if defined(HAVE_NCURSES_TERMCAP_H)
-# include <ncurses/termcap.h>
-#elif defined(HAVE_TERMCAP_H)
-# include <termcap.h>
-#endif
+# if defined(HAVE_NCURSES_TERMCAP_H)
+#  include <ncurses/termcap.h>
+# elif defined(HAVE_TERMCAP_H)
+#  include <termcap.h>
+# elif
+#  include <curses.h>
+#  include <term.h>
+# endif
 #endif
 
 #include "brhist.h"
@@ -357,4 +360,4 @@ void  brhist_disp_total ( const lame_global_flags* gf )
  * But one day, for one kind of terminal, that was not enough.)
  */
 
-/* end of brhist.c */
+#endif /* ifdef BRHIST */

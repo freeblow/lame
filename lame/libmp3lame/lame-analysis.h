@@ -26,7 +26,7 @@
 
 #define READ_AHEAD 40             /* number of frames to read ahead */
 #define MAXMPGLAG READ_AHEAD      /* if the mpg123 lag becomes bigger than this
-                                   we have to stop */
+				     we have to stop */
 #define NUMBACK 6                 /* number of frames we can back up */
 #define NUMPINFO (NUMBACK+READ_AHEAD+1)
 
