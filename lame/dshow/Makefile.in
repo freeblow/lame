@@ -99,8 +99,7 @@ WITH_MP3X = @WITH_MP3X@
 
 AUTOMAKE_OPTIONS = foreign $(top_srcdir)/ansi2knr
 
-EXTRA_DIST =  	Encoder.cpp 	Encoder.h 	Mpegac.cpp 	Mpegac.def 	Mpegac.h 	PropPage.cpp 	PropPage.h 	PropPage_adv.cpp 	PropPage_adv.h 	Property.rc 	README 	REG.CPP 	REG.H 	UIDS.H 	dshow.dsp 	dshow.dsw 	iaudioprops.h 	resource.h
-
+EXTRA_DIST = 
 mkinstalldirs = $(SHELL) $(top_srcdir)/mkinstalldirs
 CONFIG_HEADER = ../config.h
 CONFIG_CLEAN_FILES = 
@@ -205,6 +204,24 @@ all-redirect all-am all installdirs mostlyclean-generic \
 distclean-generic clean-generic maintainer-clean-generic clean \
 mostlyclean distclean maintainer-clean
 
+	Encoder.cpp \
+	Encoder.h \
+	Mpegac.cpp \
+	Mpegac.def \
+	Mpegac.h \
+	PropPage.cpp \
+	PropPage.h \
+	PropPage_adv.cpp \
+	PropPage_adv.h \
+	Property.rc \
+	README \
+	REG.CPP \
+	REG.H \
+	UIDS.H \
+	dshow.dsp \
+	dshow.dsw \
+	iaudioprops.h \
+	resource.h 
 
 # Tell versions [3.59,3.63) of GNU make to not export all variables.
 # Otherwise a system limit (for SysV at least) may be exceeded.

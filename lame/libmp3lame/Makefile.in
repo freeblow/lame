@@ -113,7 +113,7 @@ INCLUDES = @INCLUDES@ -I$(top_srcdir)/mpglib/ -I$(top_builddir)
 
 DEFS = @DEFS@ @CONFIG_DEFS@
 
-EXTRA_DIST =  	debugscalefac.c 	libmp3lame.dsp 	lameerror.h 	resample.c 	resample.h 	tools.c 	tools.h
+EXTRA_DIST =  	debugscalefac.c 	libmp3lame.dsp
 
 
 libmp3lame_la_SOURCES =          VbrTag.c 	bitstream.c 	encoder.c 	fft.c         id3tag.c         lame.c         newmdct.c 	psymodel.c 	quantize.c 	quantize_pvt.c 	reservoir.c 	tables.c 	takehiro.c 	util.c 	vbrquantize.c 	version.c 	mpglib_interface.c 	vorbis_interface.c

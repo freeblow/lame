@@ -109,15 +109,15 @@ SUFFIXES = .nas
 
 EXTRA_liblameasmroutines_la_SOURCES = $(nasm_sources)
 
-nasm_sources =  	choose_table.nas 	cpu_feat.nas 	fft3dn.nas 	scalar.nas
+nasm_sources =  	choose_table.nas 	cpu_feat.nas 	scalar.nas
 
 
-CLEANFILES =  	choose_table.lst 	cpu_feat.lst 	fft3dn.lst 	scalar.lst
+CLEANFILES =  	choose_table.lst 	cpu_feat.lst 	scalar.lst
 
 
 @HAVE_NASM_TRUE@liblameasmroutines_la_SOURCES = $(nasm_sources)
 
-EXTRA_DIST =  	fft.nas 	fftfpu.nas 	fftsse.nas 	ffttbl.nas
+EXTRA_DIST =  	fft.nas 	fft3dn.nas 	fftfpu.nas 	fftsse.nas 	ffttbl.nas
 
 
 NASM = @NASM@
@@ -134,7 +134,7 @@ ANSI2KNR = $(top_srcdir)/ansi2knr
 liblameasmroutines_la_LDFLAGS = 
 liblameasmroutines_la_LIBADD = 
 @HAVE_NASM_TRUE@liblameasmroutines_la_OBJECTS =  choose_table.o \
-@HAVE_NASM_TRUE@cpu_feat.o fft3dn.o scalar.o
+@HAVE_NASM_TRUE@cpu_feat.o scalar.o
 CFLAGS = @CFLAGS@
 COMPILE = $(CC) $(DEFS) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(AM_CFLAGS) $(CFLAGS)
 LTCOMPILE = $(LIBTOOL) --mode=compile $(CC) $(DEFS) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(AM_CFLAGS) $(CFLAGS)
@@ -149,8 +149,7 @@ DISTFILES = $(DIST_COMMON) $(SOURCES) $(HEADERS) $(TEXINFOS) $(EXTRA_DIST)
 
 TAR = tar
 GZIP_ENV = --best
-DEP_FILES =  .deps/choose_table.P .deps/cpu_feat.P .deps/fft3dn.P \
-.deps/scalar.P
+DEP_FILES =  .deps/choose_table.P .deps/cpu_feat.P .deps/scalar.P
 SOURCES = $(liblameasmroutines_la_SOURCES) $(EXTRA_liblameasmroutines_la_SOURCES)
 OBJECTS = $(liblameasmroutines_la_OBJECTS)
 
@@ -384,7 +383,7 @@ mostlyclean-generic distclean-generic clean-generic \
 maintainer-clean-generic clean mostlyclean distclean maintainer-clean
 
 .nas.o:
-	$(NASM) $(NASMFLAGS) $< -o $@ -l $@.lst
+	$(NASM) $(NASMFLAGS) $< -o $@ -l $<.lst
 
 # Tell versions [3.59,3.63) of GNU make to not export all variables.
 # Otherwise a system limit (for SysV at least) may be exceeded.

@@ -27,12 +27,7 @@ DEFS = @DEFS@ @CONFIG_DEFS@
 
 EXTRA_DIST = \
 	debugscalefac.c \
-	libmp3lame.dsp \
-	lameerror.h \
-	resample.c \
-	resample.h \
-	tools.c \
-	tools.h
+	libmp3lame.dsp
 
 libmp3lame_la_SOURCES = \
         VbrTag.c \

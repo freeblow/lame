@@ -17,13 +17,11 @@ EXTRA_liblameasmroutines_la_SOURCES = $(nasm_sources)
 nasm_sources = \
 	choose_table.nas \
 	cpu_feat.nas \
-	fft3dn.nas \
 	scalar.nas
 
 CLEANFILES = \
 	choose_table.lst \
 	cpu_feat.lst \
-	fft3dn.lst \
 	scalar.lst
 
 if HAVE_NASM
@@ -32,6 +30,7 @@ endif
 
 EXTRA_DIST = \
 	fft.nas \
+	fft3dn.nas \
 	fftfpu.nas \
 	fftsse.nas \
 	ffttbl.nas
@@ -39,4 +38,4 @@ EXTRA_DIST = \
 NASM = @NASM@
 NASMFLAGS=@NASM_FORMAT@ -i $(top_srcdir)/libmp3lame/@CPUTYPE@/
 .nas.o:
-	$(NASM) $(NASMFLAGS) $< -o $@ -l $@.lst
+	$(NASM) $(NASMFLAGS) $< -o $@ -l $<.lst

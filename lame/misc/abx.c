@@ -25,9 +25,11 @@
  *      compile time warnings
  *      buffer overruns possible
  *      no dithering if recalcs are necessary
+ *      fading time depends on sampling frequency
  *      correlation only done with one channel (2 channels, sum, what is better?)
- *      lowpass+highpass filtering (300 Hz+2*5 kHz) before delay+amplitude corr
  *      cross fade at start/stop
+ *      displaying chunk times?
+ *      reducing DMA buffer to < 0.1 s
  *      non portable keyboard
  *      fade out on quit, fade in on start
  *      level/delay ajustment should be switchable
@@ -36,17 +38,9 @@
  *      Größe cross corr fenster 2^16...18
  *      Stellensuche, ab 0*len oder 0.1*len oder 0.25*len, nach Effektiv oder Spitzenwert
  *      Absturz bei LPAC feeding, warum?
- *      Als 'B' beim Ratespiel sollte auch '0'...'9' verwendbar sein 
- *      Kreuzkorrelations mit und ohne Differenzen durchführen?
- *      Oder mit einem Filter 300 Hz...3 kHz vorher filtern?
- *      Maire 12 bit+Noise spaing möchte Originalsignal
- *      Multiple encoded differenziertes Signal
- *      Amplitudenanpassung schaltbar machen?
- *      Direkt auf der Kommandozeile kodieren:
- *      abx "test.wav" "!lame -b128 test.wav -"
  */
 
-#if defined(HAVE_CONFIG_H)
+#if   defined(HAVE_CONFIG_H)
 # include <config.h>
 #endif
 
@@ -79,11 +73,10 @@
 # include <linux/soundcard.h>         /* stand alone compilable for my tests */
 #endif
 
-#define  BF           ((freq)/25)
+#define  BF           4608
 #define  MAX_LEN      (210 * 44100)
-#define  DMA_SAMPLES  512	    	/* My Linux driver uses a DMA buffer of 65536*16 bit, which is 32768 samples in 16 bit stereo mode */
+#define  DMA_SAMPLES  32768
 
-int verbose = 0;
 
 static struct termios stored_settings;
 
@@ -172,12 +165,12 @@ int  ld ( size_t number )
 
 int  fft ( compl* fn, const size_t newlen )
 {
-    static size_t  len  = 0;
-    static int     bits = 0;
-    size_t         i;
-    size_t         j;
-    size_t         k;
-    size_t         p;
+    static size_t len  = 0;
+    static int    bits = 0;
+    size_t        i;
+    size_t        j;
+    size_t        k;
+    size_t        p;
 
     /* Tabellen initialisieren */
 
@@ -299,7 +292,7 @@ int  random_number ( void )
     return val & 1;
 }
 
-long double  prob ( int last, int total )
+long double  prob2 ( int last, int total )
 {
     long double  sum = 0.;
     long double  tmp = 1.;
@@ -333,7 +326,7 @@ void  eval ( int right )
     count ++;
     okay  += right;
     
-    val    = 1.L / prob ( okay, count );
+    val    = 1.L / prob2 ( okay, count );
     
     fprintf (stderr, "   %s %5u/%-5u ", right ? "OK" : "- " , okay, count );
     printnumber (val);
@@ -347,7 +340,7 @@ typedef signed short  sample_t;
 typedef sample_t      mono_t   [1];
 typedef sample_t      stereo_t [2];
 typedef struct {
-    unsigned long       n;
+    unsigned long long  n;
     long double         x;
     long double         x2;
     long double         y;
@@ -404,33 +397,34 @@ long double  report ( const korr_t* const k )
     y  = k->n > 0  ?  k->y/k->n  :  0.l;
     
     b  = sx != 0   ?  sy/sx * sgn(r)  :  0.l;
-    if (verbose)
-        fprintf ( stderr, "r=%Lf  sx=%Lf  sy=%Lf  x=%Lf  y=%Lf  b=%Lf\n", r, sx, sy, x, y, b );
+#ifdef DEBUG    
+    fprintf ( stderr, "r=%Lf  sx=%Lf  sy=%Lf  x=%Lf  y=%Lf  b=%Lf\n", r, sx, sy, x, y, b );
+#endif    
     return b;
 }
 
 
-int  feed ( int fd, const stereo_t* p, int len )
+int feed ( int fd, const stereo_t* p, int len )
 {
     write ( fd, p, sizeof(stereo_t) * len );
     return len;
 }
 
 
-short  round ( double f )
+short round ( double f )
 {
-    long  x = (long) floor ( f + 0.5 );
-    return x == (short)x  ?  (short)x  :  (short) ((x >> 31) ^ 0x7FFF);
+    int  x = (int)floor ( f + 0.5 );
+    if ( x == (short)x ) return x;
+    if ( x < 0 ) return SHRT_MIN;
+    return SHRT_MAX;
 }
 
 
-int  feed2 ( int fd, const stereo_t* p1, const stereo_t* p2, int len )
+int feed2 ( int fd, const stereo_t* p1, const stereo_t* p2, int len )
 {
-    stereo_t  tmp [30000];   /* An arbitrary size, hope that no overruns occure */
+    stereo_t  tmp [DMA_SAMPLES];
     int       i;
     
-    if (len > sizeof(tmp)/sizeof(*tmp))
-        len = sizeof(tmp)/sizeof(*tmp);
     for ( i = 0; i < len; i++ ) {
         double f = cos ( M_PI/2*i/len );
         f *= f;
@@ -445,11 +439,9 @@ int  feed2 ( int fd, const stereo_t* p1, const stereo_t* p2, int len )
 
 int feedfac ( int fd, const stereo_t* p1, const stereo_t* p2, int len, double fac1, double fac2 )
 {
-    stereo_t  tmp [30000];   /* An arbitrary size, hope that no overruns occure */
+    stereo_t  tmp [DMA_SAMPLES];
     int       i;
     
-    if (len > sizeof(tmp)/sizeof(*tmp))
-        len = sizeof(tmp)/sizeof(*tmp);
     for ( i = 0; i < len; i++ ) {
         tmp [i] [0] = round ( p1 [i] [0] * fac1 + p2 [i] [0] * fac2 );
         tmp [i] [1] = round ( p1 [i] [1] * fac1 + p2 [i] [1] * fac2 );
@@ -491,39 +483,35 @@ void setup ( int fdd, int samples, long freq )
     org = arg = freq;
     if ( -1 == (status = ioctl (fdd, SOUND_PCM_WRITE_RATE, &arg)) )
         perror ("SOUND_PCM_WRITE_WRITE ioctl failed");
-    fprintf (stderr, "%5u Hz*%.3f sec\n", arg, (double)samples/arg );
-
-    org = arg = DMA_SAMPLES;
-    if ( -1 == (status = ioctl (fdd, SNDCTL_DSP_SETFRAGMENT, &arg)) )
-        perror ("SNDCTL_DSP_SETFRAGMENT ioctl failed");
+    fprintf (stderr, "%5u Hz*%.3f sec [%u.%03u.%03u samples]\n", arg, (double)samples/arg, samples/1000000, samples/1000%1000, samples%1000 );
 }
 
 
-void Message ( const char* s, size_t index, long freq, size_t start, size_t stop )
+void Message ( const char* s, long index, long freq, long start, long stop )
 {
-    unsigned long  norm_index = 100lu * index / freq;
-    unsigned long  norm_start = 100lu * start / freq;
-    unsigned long  norm_stop  = 100lu * stop  / freq;
+    float norm_index, norm_start, norm_stop;
 
-    fprintf ( stderr, "\rListening %s  %2lu:%02lu.%02lu  (%1lu:%02lu.%02lu...%1lu:%02lu.%02lu)%*.*s\rListening %s",
+    norm_index = (float)index / freq;
+    norm_start = (float)start / freq;
+    norm_stop  = (float)stop  / freq;
+
+    fprintf ( stderr, "\rListening %s  %2lu:%02lu.%02lu (%2lu:%02lu.%02lu -> %2lu:%02lu.%02lu)%*.*s\rListening %s",
               s,
-              norm_index / 6000, norm_index / 100 % 60, norm_index % 100,
-              norm_start / 6000, norm_start / 100 % 60, norm_start % 100,
-              norm_stop  / 6000, norm_stop  / 100 % 60, norm_stop  % 100,
-              36 - (int)strlen(s), 36 - (int)strlen(s), "",
+              (unsigned long)norm_index / 60,
+              (unsigned long)norm_index % 60,
+              (unsigned long)norm_index * 100 % 100,
+              (unsigned long)norm_start / 60,
+              (unsigned long)norm_start % 60,
+              (unsigned long)norm_start * 100 % 100,
+              (unsigned long)norm_stop / 60,
+              (unsigned long)norm_stop % 60,
+              (unsigned long)norm_stop * 100 % 100,
+              36-(int)strlen(s), 
+              36-(int)strlen(s),    
+              "",
               s );
 
     fflush  ( stderr );
-}
-
-
-size_t  calc_true_index ( size_t index, size_t start, size_t stop )
-{
-    if ( start >= stop )
-        return start;
-    while ( index - start < DMA_SAMPLES )
-        index += stop - start;
-    return index - DMA_SAMPLES;
 }
 
 
@@ -537,11 +525,12 @@ void testing ( const stereo_t* A, const stereo_t* B, size_t len, long freq )
     float   fac2  = 0.5;
     size_t  start = 0;
     size_t  stop  = len;
-    size_t  index = start;                  /* derzeitiger Offset auf den Audioströmen */
-    char    message [80] = "A  ";
+    size_t  index = start;                  /* derzitiger Offset auf den Audioströmen */
+    char    buff [128];
 
     setup ( fd, len, freq );
 
+    Message ( "A  ", index, freq, start, stop );
     while ( 1 ) {
         c = sel ();
         if ( c == 27 )
@@ -550,23 +539,21 @@ void testing ( const stereo_t* A, const stereo_t* B, size_t len, long freq )
         switch ( c ) {
         case 'A' :
         case 'a' :
-            strcpy ( message, "A  " );
+            Message ( "A  ", index, freq, start, stop );
             if ( state != 0 )
                 state = 2;
             break;
 
-        case 0x100+'0' :
-        case '0' :
         case 'B' :
         case 'b' :
-            strcpy ( message, "  B" );
+            Message ( "  B", index, freq, start, stop );
             if ( state != 1 )
                 state = 3;
             break;
 
         case 'X' :
         case 'x' :
-            strcpy ( message, " X " );
+            Message ( " X ", index, freq, start, stop );
             if ( state != rnd )
                 state = rnd + 2;
             break;
@@ -589,91 +576,83 @@ void testing ( const stereo_t* A, const stereo_t* B, size_t len, long freq )
             break;
 
         case 'o'  :
-	    start = calc_true_index ( index, start, stop);
+            if ( index < DMA_SAMPLES )
+                start = index + stop - start - DMA_SAMPLES;
+            else
+                start = index - DMA_SAMPLES;
             break;
         case 'p'  :
-	    stop  = calc_true_index ( index, start, stop);
+            if ( index < DMA_SAMPLES )
+                stop = index + stop - start - DMA_SAMPLES;
+            else
+                stop = index - DMA_SAMPLES;
             break;
         case 'h'  :
-            if ( start > freq/100 )
-                start -= freq/100;
+            if ( start > 441 )
+                start -= 441;
             else
                 start = 0;
             index = start;
             continue;
         case 'j'  :
-            if ( start < stop-freq/100 )
-                start += freq/100;
+            if ( start < len-441 )
+                start += 441;
             else
-                start = stop;
+                start = len;
             index = start;
             continue;
         case 'k'  :
-            if ( stop > start+freq/100 )
-                stop -= freq/100;
+            if ( stop > 441 )
+                stop -= 441;
             else
-                stop = start;
+                stop = 0;
             continue;
         case 'l'  :
-            if ( stop < len-freq/100 )
-                stop += freq/100;
+            if ( stop < len-441 )
+                stop += 441;
             else
                 stop = len;
             continue;
         case '\n':
             index = start;
-            continue;
+            break;
 
         case 'D'+0x100:
-            strcpy ( message, "Difference (+40 dB)" );
+            Message ( "Difference (+40 dB)", index, freq, start, stop );
             state = 9;
             fac1  = -100.;
             fac2  = +100.;
             break;
 
         case 'd'+0x100:
-            strcpy ( message, "Difference (+30 dB)" );
+            Message ( "Difference (+30 dB)", index, freq, start, stop );
             state = 9;
             fac1  = -32.;
             fac2  = +32.;
             break;
 
         case 'D' & 0x1F :
-            strcpy ( message, "Difference (+20 dB)" );
+            Message ( "Difference (+20 dB)", index, freq, start, stop );
             state = 9;
             fac1  = -10.;
             fac2  = +10.;
             break;
 
         case 'D' :
-            strcpy ( message, "Difference (+10 dB)" );
+            Message ( "Difference (+10 dB)", index, freq, start, stop );
             state = 9;
             fac1  = -3.;
             fac2  = +3.;
             break;
 
         case 'd' :
-            strcpy ( message, "Difference (  0 dB)" );
+            Message ( "Difference (  0 dB)", index, freq, start, stop );
             state = 9;
             fac1  = -1.;
             fac2  = +1.;
             break;
 
-        case 0x100+'1' :
-        case 0x100+'2' :
-        case 0x100+'3' :
-        case 0x100+'4' :
-        case 0x100+'5' :
-        case 0x100+'6' :
-        case 0x100+'7' :
-        case 0x100+'8' :
-        case 0x100+'9' :
-            sprintf ( message, "  B (Errors -%c dB)", (char)c );
-            state = 9;
-            fac2  = pow (10., -0.05*(c-0x100-'0') );
-            fac1  = 1. - fac2;
-            break;
-
+        case '0' :
         case '1' :
         case '2' :
         case '3' :
@@ -683,7 +662,8 @@ void testing ( const stereo_t* A, const stereo_t* B, size_t len, long freq )
         case '7' :
         case '8' :
         case '9' :
-            sprintf ( message, "  B (Errors +%c dB)", c );
+            sprintf ( buff, "  B (Errors +%c dB)", c );
+            Message ( buff, index, freq, start, stop );
             state = 9;
             fac2  = pow (10., 0.05*(c-'0') );
             fac1  = 1. - fac2;
@@ -697,7 +677,7 @@ void testing ( const stereo_t* A, const stereo_t* B, size_t len, long freq )
                 state = 6 + rnd;
             else if ( state != rnd )
                 state = rnd + 2;
-            strcpy ( message," X " );
+            Message (" X ", index, freq, start, stop );
             break;
 
         case 'B' & 0x1F:
@@ -708,7 +688,7 @@ void testing ( const stereo_t* A, const stereo_t* B, size_t len, long freq )
                 state = 6 + rnd;
             else if ( state != rnd )
                 state = rnd + 2;
-            strcpy ( message," X " );
+            Message (" X ", index, freq, start, stop );
             break;
 
         case -1:
@@ -758,7 +738,7 @@ void testing ( const stereo_t* A, const stereo_t* B, size_t len, long freq )
             break;
             
         case 4: /* A */
-            strcpy ( message, "A  " );
+            Message ( "A  ", index, freq, start, stop );
             if ( index + BF >= stop )
                 index += feed (fd, A+index, stop-index ),
                 state++;
@@ -767,7 +747,7 @@ void testing ( const stereo_t* A, const stereo_t* B, size_t len, long freq )
             break;
 
         case 5: /* B */
-            strcpy ( message, "  B" );
+            Message ( "  B", index, freq, start, stop );
             if ( index + BF >= stop )
                 index += feed (fd, B+index, stop-index ),
                 state--;
@@ -776,7 +756,7 @@ void testing ( const stereo_t* A, const stereo_t* B, size_t len, long freq )
             break;
 
         case 6: /* X */
-            strcpy ( message, " X " );
+            Message ( " X ", index, freq, start, stop );
             if ( index + BF >= stop )
                 index += feed (fd, (rnd ? B : A)+index, stop-index ),
                 state++;
@@ -785,7 +765,7 @@ void testing ( const stereo_t* A, const stereo_t* B, size_t len, long freq )
             break;
 
         case 7: /* !X */
-            strcpy ( message, "!X " );
+            Message ( "!X ", index, freq, start, stop );
             if ( index + BF >= stop )
                 index += feed (fd, (rnd ? A : B)+index, stop-index ),
                 state--;
@@ -794,24 +774,24 @@ void testing ( const stereo_t* A, const stereo_t* B, size_t len, long freq )
             break;
 
         case 8:
-            if ( index + BF/2 >= stop )
+            if ( index + 512 >= stop )
                 index += feed2 (fd, A+index, B+index, stop-index );
             else
-                index += feed2 (fd, A+index, B+index, BF/2 );
+                index += feed2 (fd, A+index, B+index, 512 );
             Message ( "  B", index, freq, start, stop );
-            if ( index + BF >= stop )
+            if ( index + BF/2 >= stop )
                 index += feed (fd, B+index, stop-index );
             else
-                index += feed (fd, B+index, BF );
-            if ( index + BF/2 >= stop )
+                index += feed (fd, B+index, BF/2 );
+            if ( index + 512 >= stop )
                 index += feed2 (fd, B+index, A+index, stop-index );
             else
-                index += feed2 (fd, B+index, A+index, BF/2 );
+                index += feed2 (fd, B+index, A+index, 512 );
             Message ( "A  ", index, freq, start, stop );
-            if ( index + BF >= stop )
+            if ( index + BF/2 >= stop )
                 index += feed (fd, A+index, stop-index );
             else
-                index += feed (fd, A+index, BF );
+                index += feed (fd, A+index, BF/2 );
             break;
 
         case 9: /* Liko */
@@ -824,10 +804,10 @@ void testing ( const stereo_t* A, const stereo_t* B, size_t len, long freq )
         default:
             assert (0);
         }
-
         if (index >= stop)
             index = start;
-        Message ( message, calc_true_index ( index, start, stop), freq, start, stop );
+        fprintf ( stderr, "  %2lu:%02lu.%02lu\b\b\b\b\b\b\b\b\b\b", index/freq/60, index/freq%60, index*100/freq%100 );
+        fflush ( stderr );
     }
 }
 
@@ -846,38 +826,44 @@ typedef struct {
     const char* const  command;
 } decoder_t;
 
-
-#define REDIR     " 2> /dev/null"
-#define STDOUT    "/dev/fd/1"
+#define REDIR " 2> /dev/null"
+#define SYSDEP_STDOUT "/dev/fd/1 "
 
 const decoder_t  decoder [] = {
-    { ".mp1"    , "/usr/local/bin/mpg123 -w - %s"                   REDIR },  // MPEG Layer I         : www.iis.fhg.de, www.mpeg.org
-    { ".mp2"    , "/usr/local/bin/mpg123 -w - %s"                   REDIR },  // MPEG Layer II        : www.iis.fhg.de, www.uq.net.au/~zzmcheng, www.mpeg.org
-    { ".mp3"    , "/usr/local/bin/mpg123 -w - %s"                   REDIR },  // MPEG Layer III       : www.iis.fhg.de, www.mp3dev.org/mp3, www.mpeg.org
-    { ".mpp"    , "/usr/local/bin/mppdec %s -"                      REDIR },  // MPEGplus             : www.stud.uni-hannover.de/user/73884
-    { ".mp+"    , "/usr/local/bin/mppdec %s -"                      REDIR },  // MPEGplus             : www.stud.uni-hannover.de/user/73884
-    { ".aac"    , "/usr/local/bin/faad -t.wav -w %s"                REDIR },  // Advanced Audio Coding: psytel.hypermart.net, www.aac-tech.com, sourceforge.net/projects/faac, www.aac-audio.com, www.mpeg.org
-    { ".ac3"    , "/usr/local/bin/ac3dec %s"                        REDIR },  // Dolby AC3            : www.att.com
-    { ".ogg"    , "/usr/local/bin/ogg123 -d wav -o file:"STDOUT" %s"REDIR },  // Ogg Vorbis           : www.xiph.org/ogg/vorbis/index.html
-    { ".pac"    , "/usr/local/bin/lpac -x %s "STDOUT                REDIR },  // Lossless predictive Audio Compression: www-ft.ee.tu-berlin.de/~liebchen/lpac.html (liebchen@ft.ee.tu-berlin.de)
-    { ".shn"    , "/usr/local/bin/shorten -x < %s"                  REDIR },  // Shorten              : shnutils.freeshell.org, www.softsound.com/Shorten.html (shnutils@freeshell.org, shorten@softsound.com)
-    { ".wav.gz" , "gzip  -d < %s | sox -twav - -twav -sw -"         REDIR },  // gziped WAV
-    { ".wav.sz" , "szip  -d < %s | sox -twav - -twav -sw -"         REDIR },  // sziped WAV
-    { ".wav.sz2", "szip2 -d < %s | sox -twav - -twav -sw -"         REDIR },  // sziped WAV
-    { ".raw"    , "sox -r44100 -sw -c2 -traw %s -twav -sw -"        REDIR },  // raw files are treated as CD like audio
-    { ".rm"     , "echo %s '???'"                                   REDIR },  // Real Audio           : www.real.com
-    { ".???"    , "echo %s '???'"                                   REDIR },  // ePAC                 : www.audioveda.com, www.lucent.com/ldr
-    { ".mov"    , "echo %s '???'"                                   REDIR },  // QDesign Music 2      : www.qdesign.com
-    { ".vqf"    , "echo %s '???'"                                   REDIR },  // TwinVQ               : www.yamaha-xg.com/english/xg/SoundVQ, www.vqf.com, sound.splab.ecl.ntt.co.jp/twinvq-e
-    { ".wma"    , "echo %s '???'"                                   REDIR },  // Microsoft Media Audio: www.windowsmedia.com, www.microsoft.com/windows/windowsmedia
-    { ".???"    , "echo %s '???'"                                   REDIR },  // Monkey's Audio Codec : www.monkeysaudio.com (email@monkeysaudio.com)
+    { ".mp1"    , "/usr/local/bin/mpg123 -w - %s" REDIR },  // MPEG Layer I         : www.iis.fhg.de, www.mpeg.org
+    { ".mp2"    , "/usr/local/bin/mpg123 -w - %s" REDIR },  // MPEG Layer II        : www.iis.fhg.de, www.uq.net.au/~zzmcheng, www.mpeg.org
+    { ".mp3"    , "/usr/local/bin/mpg123 -w - %s" REDIR },  // MPEG Layer III       : www.iis.fhg.de, www.mp3dev.org/mp3, www.mpeg.org
+    { ".mpp"    , "/usr/local/bin/mppdec %s -"    REDIR },  // MPEGplus             : www.stud.uni-hannover.de/user/73884
+    { ".mp+"    , "/usr/local/bin/mppdec %s -"    REDIR },  // MPEGplus             : www.stud.uni-hannover.de/user/73884
+    { ".aac"    , "/usr/local/bin/faad -w %s"     REDIR },  // Advanced Audio Coding: psytel.hypermart.net, www.aac-tech.com, sourceforge.net/projects/faac, www.aac-audio.com, www.mpeg.org
+    { ".ac3"    , "/usr/local/bin/ac3dec %s"      REDIR },  // Dolby AC3            : www.att.com
+    { ".ogg"    , "/usr/local/bin/ogg123 -d wav -o file:" SYSDEP_STDOUT "%s" REDIR
+                  " | sox -r44100 -sw -c2 -traw - -twav -sw -" REDIR },
+                                                            // Ogg Vorbis           : www.xiph.org/ogg/vorbis/index.html
     { ".mod"    , "xmp -b16 -c -f44100 --stereo -o- %s | sox -r44100 -sw -c2 -traw - -twav -sw -"
-                                                                    REDIR },  // Amiga's Music on Disk:
-    { ""        , "sox %s -twav -sw -"                              REDIR },  // Rest, may be possible with sox
+                                                  REDIR },  // Amiga's Music on Disk:
+    { ".rm"     , "echo %s '???'"                 REDIR },  // Real Audio           : www.real.com
+    { ".pac"    , "/usr/local/bin/lpac -x %s " SYSDEP_STDOUT   REDIR },  // ePAC                 : www.audioveda.com, www.lucent.com/ldr
+    { ".mov"    , "echo %s '???'"                 REDIR },  // QDesign Music 2      : www.qdesign.com
+    { ".vqf"    , "echo %s '???'"                 REDIR },  // TwinVQ               : www.yamaha-xg.com/english/xg/SoundVQ, www.vqf.com, sound.splab.ecl.ntt.co.jp/twinvq-e
+    { ".wma"    , "echo %s '???'"                 REDIR },  // Microsoft Media Audio: www.windowsmedia.com, www.microsoft.com/windows/windowsmedia
+    { ".mac"    , "echo %s '???'"                 REDIR },  // Monkey's Audio Codec : www.monkeysaudio.com (email@monkeysaudio.com)
+    { ".pac"    , "/usr/local/bin/lpac -x %s " SYSDEP_STDOUT
+                                                  REDIR },  // Lossless predictive Audio Compression: www-ft.ee.tu-berlin.de/~liebchen/lpac.html (liebchen@ft.ee.tu-berlin.de)
+    { ".shn"    , "/usr/local/bin/shorten -x < %s"REDIR },  // Shorten              : shnutils.freeshell.org, www.softsound.com/Shorten.html (shnutils@freeshell.org, shorten@softsound.com)
+    { ".wav.gz" , "gzip  -d < %s | sox -twav - -twav -sw -"
+                                                  REDIR },  // gziped WAV
+    { ".wav.sz" , "szip  -d < %s | sox -twav - -twav -sw -"
+                                                  REDIR },  // sziped WAV
+    { ".wav.sz2", "szip2 -d < %s | sox -twav - -twav -sw -"
+                                                  REDIR },  // sziped WAV
+    { ".raw"    , "sox -r44100 -sw -c2 -traw %s -twav -sw -"
+                                                  REDIR },  // raw files are treated as CD like audio
+    { ""        , "sox %s -t wav -"               REDIR },  // Rest, may be possible with sox
 };
 
+#undef SYSDEP_STDOUT
 #undef REDIR
-#undef STDOUT
 
 
 int  readwave ( stereo_t* buff, size_t maxlen, const char* name, size_t* len )
@@ -928,10 +914,10 @@ int  readwave ( stereo_t* buff, size_t maxlen, const char* name, size_t* len )
                 buff[i][0] = buff[i][1] = ((sample_t*)buff) [i];
             break;
         case 0:
-            fprintf (stderr, "\b\b\b\b, Standard Open Source Bug detected, try murksaround ..." );
+            fprintf (stderr, "Standard Open Source Bug detected, try murksaround " );
             *len = fread ( buff, sizeof(stereo_t), maxlen, fp );
             header[11] =     2;
-            header[12] = 65534;  /* use that of the other channel */
+            header[12] = 44100;
             break;
         default:
             fprintf (stderr, "Only 1 or 2 channels are supported, not %u\n", header[11] );
@@ -940,7 +926,7 @@ int  readwave ( stereo_t* buff, size_t maxlen, const char* name, size_t* len )
     }
     pclose ( fp ); 
     fprintf (stderr, "\n" );
-    return header[12] ? header[12] : 65534;
+    return header[12];
 }
 
 
@@ -962,7 +948,6 @@ double  cross_analyze ( const stereo_t* p1, const stereo_t *p2, size_t len )
     double  tmp1;
     double  tmp2;
     int     ret = 0;
-    int     cnt = 5;
 
     // Calculating effective voltage
     sum1 = sum2 = 0.;
@@ -973,7 +958,7 @@ double  cross_analyze ( const stereo_t* p1, const stereo_t *p2, size_t len )
     sum1 = sqrt ( sum1/len );
     sum2 = sqrt ( sum2/len );
 
-    // Searching beginning of signal (not stable for pathological signals)
+    // Searching beginning of signal
     for ( i = 0; i < len; i++ )
         if ( abs (p1[i][0]) >= sum1  &&  abs (p2[i][0]) >= sum2 )
             break;
@@ -1034,14 +1019,15 @@ double  cross_analyze ( const stereo_t* p1, const stereo_t *p2, size_t len )
 
         ret += maxindex;
         tmp = 100./MAX/sqrt(sum1*sum2);
-        if (verbose)
-            printf ( "[%5d]%8.4f  [%5d]%8.4f  [%5d]%8.4f  [%10.4f]%8.4f\n",
-                     ret- 1, (y1+y2)*tmp,
-                     ret   ,     y2 *tmp,
-                     ret+ 1, (y3+y2)*tmp,
-                     ret+xo, (yo+y2)*tmp );
+#ifdef DEBUG
+        printf ( "[%5d]%8.4f  [%5d]%8.4f  [%5d]%8.4f  [%10.4f]%8.4f\n",
+                 ret- 1, (y1+y2)*tmp,
+                 ret   ,     y2 *tmp,
+                 ret+ 1, (y3+y2)*tmp,
+                 ret+xo, (yo+y2)*tmp );
+#endif
 
-    } while ( maxindex  &&  cnt-- );
+    } while ( maxindex );
 
     return ret + xo;
 }
@@ -1049,7 +1035,9 @@ double  cross_analyze ( const stereo_t* p1, const stereo_t *p2, size_t len )
 
 short  to_short ( int x )
 {
-    return x == (short)x  ?  (short)x  :  (short) ((x >> 31) ^ 0x7FFF);
+    if ( x == (short)x ) return (short)x;
+    if ( x > SHRT_MAX ) return SHRT_MAX;
+    return SHRT_MIN;
 }
 
 
@@ -1070,8 +1058,7 @@ void  DC_cancel ( stereo_t* p, size_t len )
         
     diff1 = round ( sum1 / len );
     diff2 = round ( sum2 / len );
-    if (verbose)
-        fprintf (stderr, "Removing DC (left=%d, right=%d)\n", diff1, diff2 );
+    fprintf (stderr, "Removing DC (left=%d, right=%d)\n", diff1, diff2 );
     
     for (i = 0; i < len; i++ ) {
         p[i][0] = to_short (p[i][0] + diff1);
@@ -1085,8 +1072,7 @@ void  multiply ( char c, stereo_t* p, size_t len, double fact )
     
     if ( fact == 1. )
         return;
-    if (verbose)
-        fprintf (stderr, "Multiplying %c by %7.5f\n", c, fact );
+    fprintf (stderr, "Multiplying %c by %7.5f\n", c, fact );
     
     for (i = 0; i < len; i++ ) {
         p[i][0] = to_short (p[i][0] * fact );
@@ -1111,10 +1097,9 @@ int  maximum ( stereo_t* p, size_t len )
 void  usage ( void )
 {
     fprintf ( stderr, 
-        "usage:  abx [-v] File_A File_B\n"
+        "usage:  abx File_A File_B\n"
         "\n"
-        "File_A and File_B loaded and played. File_A should be the better/reference\n"
-        "file, File_B the other. You can press the following keys:\n"
+        "File_A and File_B are loaded and played. You can press the following keys:\n"
         "\n"
         "  a/A:    Listen to File A\n"
         "  b/B:    Listen to File B\n"
@@ -1131,6 +1116,7 @@ void  usage ( void )
         "  0...9:  Listen to B, but difference A-B is amplified by 0-9 dB\n"
         "  Q:      Quit the program\n"
         "\n"
+        "I advice to use the \"better\"/reference file as File_A, the other as File_B\n"
     );
 }
 
@@ -1154,12 +1140,6 @@ int  main ( int argc, char** argv )
     double     ampl;
     int        ampl_X;
     korr_t     k;
-    
-    if (argc > 1  &&  0 == strcmp (argv[1], "-v") ) {
-        verbose = 1;
-        argc--;
-        argv++;
-    }
 
     switch ( argc ) {
     case 0:
@@ -1177,17 +1157,9 @@ int  main ( int argc, char** argv )
     DC_cancel ( A, len_A );
     freq2 = readwave ( B, MAX_LEN, argv[2], &len_B );
     DC_cancel ( B, len_B );
-    
-    if      ( freq1 == 65534  &&  freq2 != 65534 )
-        freq1 = freq2;
-    else if ( freq2 == 65534  &&  freq1 != 65534 )
-        freq2 = freq1;
-    else if ( freq1 == 65534  &&  freq2 == 65534 )
-        freq1 = freq2 = 44100;
 
     if ( freq1 != freq2 ) {
         fprintf ( stderr, "Different sample frequencies currently not supported\n");
-        fprintf ( stderr, "A: %ld, B: %ld\n", freq1, freq2 );
         return 2;
     }
 
@@ -1195,18 +1167,16 @@ int  main ( int argc, char** argv )
     fshift = cross_analyze ( A, B, len );
     shift  = floor ( fshift + 0.5 );
 
-    if ( verbose )
+    if ( fabs(fshift - shift) >= 0.05 )
         fprintf ( stderr, "Delay is %.4f samples\n", fshift );
 
     if (shift > 0) {
-        if (verbose) 
-            fprintf ( stderr, "Delaying A by %d samples\n", +shift);
+        fprintf ( stderr, "Delaying A by %d samples\n", +shift);
         B     += shift;
         len_B -= shift;
     }
     if (shift < 0) {
-        if (verbose)
-            fprintf ( stderr, "Delaying B by %d samples\n", -shift);
+        fprintf ( stderr, "Delaying B by %d samples\n", -shift);
         A     -= shift;
         len_A += shift;
     }
@@ -1249,4 +1219,3 @@ int  main ( int argc, char** argv )
 }
 
 /* end of abx.c */
-
