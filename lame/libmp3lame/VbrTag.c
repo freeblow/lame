@@ -26,21 +26,12 @@
 #endif
 
 #include "machine.h"
-#if defined(__riscos__) && defined(FPA10)
-#include	"ymath.h"
-#else 
-#include	<math.h>
-#endif
-
-
 #include "bitstream.h"
 #include "lame.h"
 #include "VbrTag.h"
 #include "version.h"
 
 #include	<assert.h>
-#include 	<stdlib.h>
-#include 	<string.h>
 
 #ifdef WITH_DMALLOC
 #include <dmalloc.h>
@@ -571,7 +562,6 @@ int PutLameVBR(lame_global_flags *gfp, FILE *fpStream, uint8_t *pbtStreamBuffer,
 	int		bNonOptimal				= 0;
 	uint8_t nSourceFreq				= 0;
 	uint8_t nMisc					= 0;
-	uint16_t nPresetValue			= 0;
 	uint32_t nMusicLength			= 0;
 	int		bId3v1Present			= ((gfp->internal_flags->tag_spec.flags & CHANGED_FLAG)
 		&& !(gfp->internal_flags->tag_spec.flags & V2_ONLY_FLAG));
@@ -689,7 +679,6 @@ int PutLameVBR(lame_global_flags *gfp, FILE *fpStream, uint8_t *pbtStreamBuffer,
 	fseek(fpStream, 0, SEEK_END);
 	nFilesize = ftell(fpStream);
 
-    nPresetValue = gfp->preset;
 	
 	nMusicLength = nFilesize - id3v2size;		//omit current frame
 	if (bId3v1Present)
@@ -738,10 +727,9 @@ int PutLameVBR(lame_global_flags *gfp, FILE *fpStream, uint8_t *pbtStreamBuffer,
 	nBytesWritten++;
 
 
-	memset(pbtStreamBuffer+nBytesWritten,0, 1);		//unused in rev1
-	nBytesWritten+=1;
+	pbtStreamBuffer[nBytesWritten++] = 0;	//unused in rev1
 
-	CreateI2(&pbtStreamBuffer[nBytesWritten], nPresetValue);
+	CreateI2(&pbtStreamBuffer[nBytesWritten], gfp->preset);
 	nBytesWritten+=2;
 
 	CreateI4(&pbtStreamBuffer[nBytesWritten], nMusicLength);

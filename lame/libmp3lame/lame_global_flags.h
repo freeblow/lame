@@ -67,24 +67,19 @@ struct lame_global_struct {
   int original;                   /* mark as original. default=1            */
   int error_protection;           /* use 2 bytes per frame for a CRC
                                      checksum. default=0                    */
-  Padding_type padding_type;      /* PAD_NO = no padding,
-                                     PAD_ALL = always pad,
-                                     PAD_ADJUST = adjust padding,
-                                     default=2                              */
   int extension;                  /* the MP3 'private extension' bit.
                                      Meaningless                            */
   int strict_ISO;                 /* enforce ISO spec as much as possible   */
 
   /* quantization/noise shaping */
   int disable_reservoir;          /* use bit reservoir?                     */
-  int experimentalX;            
+  int experimentalX;
   int experimentalY;
   int experimentalZ;
   int exp_nspsytune;
 
   double newmsfix;
   int preset_expopts;
-
   int preset;
 
   /* VBR control */
@@ -124,6 +119,7 @@ struct lame_global_struct {
   float athaa_sensitivity;        /* dB, tune active region of auto-level */
   int cwlimit;                    /* predictability limit                 */
   short_block_t short_blocks;
+  int mixed_blocks;
 /*  int allow_diff_short;            allow blocktypes to differ between
                                      channels?                            */
   int useTemporal;                /* use temporal masking effect          */

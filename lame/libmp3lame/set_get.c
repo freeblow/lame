@@ -302,7 +302,7 @@ lame_get_ogg( const lame_global_flags*  gfp )
  * True quality is determined by the bitrate but this variable will effect
  * quality by selecting expensive or cheap algorithms.
  * quality=0..9.  0=best (very slow).  9=worst.  
- * recommended:  2     near-best quality, not too slow
+ * recommended:  3     near-best quality, not too slow
  *               5     good quality, fast
  *               7     ok quality, really fast
  */
@@ -588,35 +588,6 @@ lame_get_error_protection( const lame_global_flags*  gfp )
     assert( 0 <= gfp->error_protection && 1 >= gfp->error_protection );
 
     return gfp->error_protection;
-}
-
-
-/*
- * padding_type.
- *  PAD_NO     = pad no frames
- *  PAD_ALL    = pad all frames
- *  PAD_ADJUST = adjust padding
- */
-int
-lame_set_padding_type( lame_global_flags*  gfp,
-                       Padding_type        padding_type )
-{
-    /* default = 2 */
-
-    if ( 0 > padding_type || PAD_MAX_INDICATOR < padding_type )
-        return -1;  /* Unknown padding type */
-
-    gfp->padding_type = padding_type;
-
-    return 0;
-}
-
-Padding_type
-lame_get_padding_type( const lame_global_flags*  gfp )
-{
-    assert( 0 <= gfp->padding_type && PAD_MAX_INDICATOR > gfp->padding_type );
-
-    return gfp->padding_type;
 }
 
 
@@ -1121,14 +1092,14 @@ int
 lame_set_ATHlower( lame_global_flags*  gfp,
                    float               ATHlower )
 {
-    gfp->ATHlower = ATHlower;
+    gfp->ATHlower = -ATHlower / 10.0;
     return 0;
 }
 
 float
 lame_get_ATHlower( const lame_global_flags*  gfp )
 {
-    return gfp->ATHlower;
+    return -gfp->ATHlower * 10.0;
 }
 
 
@@ -1284,7 +1255,7 @@ lame_set_substep( lame_global_flags*  gfp,
 {
     lame_internal_flags *gfc = gfp->internal_flags;
     /* default = 0.0 (no inter-cahnnel maskin) */
-    if (! (0 <= method && method <= 2))
+    if (! (0 <= method && method <= 7))
         return -1;
 
     gfc->substep_shaping = method;
@@ -1295,7 +1266,7 @@ int
 lame_get_substep(const lame_global_flags*  gfp )
 {
     lame_internal_flags *gfc = gfp->internal_flags;
-    assert(0 <= gfc->substep_shaping && gfc->substep_shaping <= 2);
+    assert(0 <= gfc->substep_shaping && gfc->substep_shaping <= 7);
     return gfc->substep_shaping;
 }
 
@@ -1315,6 +1286,23 @@ lame_set_no_short_blocks( lame_global_flags*  gfp,
 
     return 0;
 }
+
+/* Use mixed block. */
+int
+lame_set_use_mixed_blocks( lame_global_flags*  gfp,
+			   int                 use_mixed_blocks )
+{
+    /* 0 ... not use the mixed block
+       1 ... use all short block as mixed block
+       2 ... mixed/not mixed is determined by PE (not implemented yet)
+    */
+    if (!(0 <= use_mixed_blocks && use_mixed_blocks <= 2))
+        return -1;
+
+    gfp->mixed_blocks = use_mixed_blocks;
+    return 0;
+}
+
 int
 lame_get_no_short_blocks( const lame_global_flags*  gfp )
 {
@@ -1515,6 +1503,8 @@ lame_set_preset_expopts( lame_global_flags*  gfp, int preset_expopts )
 
     /* default = 0 (disabled) */
     gfp->preset_expopts = preset_expopts;
+    gfc->nsPsy.attackthre   =  8.0;
+    gfc->nsPsy.attackthre_s = 15.0;
 
     switch (preset_expopts)
     {
@@ -1525,10 +1515,8 @@ lame_set_preset_expopts( lame_global_flags*  gfp, int preset_expopts )
           lame_set_exp_nspsytune(gfp, lame_get_exp_nspsytune(gfp) | 2); // safejoint
           lame_set_ATHtype(gfp, 2);
 
-          gfc->presetTune.attackthre   = 35;
-          gfc->presetTune.attackthre_s = 150;
           gfc->presetTune.ms_maskadjust = .5;
-		  gfc->presetTune.quantcomp_type_s = 3;
+	  gfc->presetTune.quantcomp_type_s = 3;
           gfc->presetTune.quantcomp_alt_type = 3;
           gfc->presetTune.athadjust_switch_level = 2; // Always switch
 
@@ -1542,12 +1530,12 @@ lame_set_preset_expopts( lame_global_flags*  gfp, int preset_expopts )
              gfc->presetTune.quantcomp_type_s = 4;
              gfc->presetTune.quantcomp_alt_type = 0;
              gfc->presetTune.athadjust_safe_noiseshaping_thre = 0.0;
-			 gfc->presetTune.athadjust_safe_athaasensitivity = 8.0;
+	     gfc->presetTune.athadjust_safe_athaasensitivity = 8.0;
           }
           else {
              lame_set_experimentalX(gfp, 3);
-             gfc->presetTune.quantcomp_adjust_rh_tot = 600;
-			 gfc->presetTune.quantcomp_adjust_rh_max = 60;
+             gfc->presetTune.quantcomp_adjust_rh_tot = 60;
+	     gfc->presetTune.quantcomp_adjust_rh_max = 6;
              gfc->presetTune.quantcomp_type_s = 3;
              gfc->presetTune.quantcomp_alt_type = 1;
           }
@@ -1560,11 +1548,9 @@ lame_set_preset_expopts( lame_global_flags*  gfp, int preset_expopts )
           // modify sfb21 by 3 dB plus ns-treble=0                 
           lame_set_exp_nspsytune(gfp, lame_get_exp_nspsytune(gfp) | (12 << 20));
 
-          gfc->presetTune.attackthre   = 35;
-          gfc->presetTune.attackthre_s = 150;
           gfc->presetTune.ms_maskadjust = .5;
           gfc->presetTune.athadjust_switch_level = 1;
-          gfc->presetTune.athadjust_msfix = 2.13;
+          gfc->nsPsy.athadjust_msfix = 2.13;
 
           break;
 
@@ -1573,15 +1559,15 @@ lame_set_preset_expopts( lame_global_flags*  gfp, int preset_expopts )
           if (gfp->VBR == vbr_mtrh) {
              gfc->presetTune.quantcomp_type_s = 4;
              gfc->presetTune.quantcomp_adjust_mtrh = 9;
-			 gfc->presetTune.quantcomp_alt_type = 0;
+	     gfc->presetTune.quantcomp_alt_type = 0;
              (void) lame_set_ATHlower( gfp, -2 );
              gfc->presetTune.athadjust_safe_noiseshaping_thre = 0.0;
-			 gfc->presetTune.athadjust_safe_athaasensitivity = 8.0;
+	     gfc->presetTune.athadjust_safe_athaasensitivity = 8.0;
           }
           else {
              gfc->presetTune.quantcomp_type_s = 3;
-             gfc->presetTune.quantcomp_adjust_rh_tot = 600;
-			 gfc->presetTune.quantcomp_adjust_rh_max = 60;
+             gfc->presetTune.quantcomp_adjust_rh_tot = 60;
+	     gfc->presetTune.quantcomp_adjust_rh_max = 6;
              (void) lame_set_ATHlower( gfp, -1 );
           }
 
@@ -1590,17 +1576,16 @@ lame_set_preset_expopts( lame_global_flags*  gfp, int preset_expopts )
           lame_set_experimentalX(gfp, 1);
           lame_set_VBR_q(gfp, 2);
           lame_set_exp_nspsytune(gfp, lame_get_exp_nspsytune(gfp) | 2); // safejoint
-   (void) lame_set_msfix( gfp, 2.13 );
+	  (void) lame_set_msfix( gfp, 2.13 );
           lame_set_ATHtype(gfp, 4);
           // modify sfb21 by 3.75 dB plus ns-treble=0                 
           lame_set_exp_nspsytune(gfp, lame_get_exp_nspsytune(gfp) | (15 << 20));
-
-          gfc->presetTune.attackthre   = 35;
-          gfc->presetTune.attackthre_s = 150;
           gfc->presetTune.ms_maskadjust = .5;
           gfc->presetTune.athadjust_switch_level = 1;
 
           break;
+    default:
+	assert(0);
     }
     return 0;
 }
@@ -1619,6 +1604,7 @@ lame_set_preset_notune( lame_global_flags*  gfp, int preset_notune )
 int
 lame_set_preset( lame_global_flags*  gfp, int preset )
 {
+    extern int apply_preset();
     gfp->preset = preset;
     return apply_preset(gfp, preset);
 }
@@ -1644,21 +1630,4 @@ lame_set_asm_optimizations( lame_global_flags*  gfp, int optim, int mode)
         }
         default: return optim;
     }
-
 }
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
