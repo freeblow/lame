@@ -69,6 +69,191 @@ static const struct
 
 
 
+
+/*********************************************************************
+ * nonlinear quantization of xr 
+ * More accurate formula than the ISO formula.  Takes into account
+ * the fact that we are quantizing xr -> ix, but we want ix^4/3 to be 
+ * as close as possible to x^4/3.  (taking the nearest int would mean
+ * ix is as close as possible to xr, which is different.)
+ * From Segher Boessenkool <segher@eastsite.nl>  11/1999
+ * ASM optimization from 
+ *    Mathew Hendry <scampi@dial.pipex.com> 11/1999
+ *    Acy Stapp <AStapp@austin.rr.com> 11/1999
+ *    Takehiro Tominaga <tominaga@isoternet.org> 11/1999
+ * 9/00: ASM code removed in favor of IEEE754 hack.  If you need
+ * the ASM code, check CVS circa Aug 2000.  
+ *********************************************************************/
+
+
+#ifdef TAKEHIRO_IEEE754_HACK
+
+typedef union {
+    float f;
+    int i;
+} fi_union;
+
+#define MAGIC_FLOAT (65536*(128))
+#define MAGIC_INT 0x4b000000
+
+static void quantize_xrpow(const FLOAT8 *xp, int *pi, FLOAT8 istep)
+{
+    /* quantize on xr^(3/4) instead of xr */
+    int j;
+    fi_union *fi;
+
+    fi = (fi_union *)pi;
+    for (j = 576 / 4 - 1; j >= 0; --j) {
+	double x0 = istep * xp[0];
+	double x1 = istep * xp[1];
+	double x2 = istep * xp[2];
+	double x3 = istep * xp[3];
+
+	x0 += MAGIC_FLOAT; fi[0].f = x0;
+	x1 += MAGIC_FLOAT; fi[1].f = x1;
+	x2 += MAGIC_FLOAT; fi[2].f = x2;
+	x3 += MAGIC_FLOAT; fi[3].f = x3;
+
+	fi[0].f = x0 + (adj43asm - MAGIC_INT)[fi[0].i];
+	fi[1].f = x1 + (adj43asm - MAGIC_INT)[fi[1].i];
+	fi[2].f = x2 + (adj43asm - MAGIC_INT)[fi[2].i];
+	fi[3].f = x3 + (adj43asm - MAGIC_INT)[fi[3].i];
+
+	fi[0].i -= MAGIC_INT;
+	fi[1].i -= MAGIC_INT;
+	fi[2].i -= MAGIC_INT;
+	fi[3].i -= MAGIC_INT;
+	fi += 4;
+	xp += 4;
+    }
+}
+
+#  define ROUNDFAC -0.0946
+static void quantize_xrpow_ISO(const FLOAT8 *xp, int *pi, FLOAT8 istep)
+{
+    /* quantize on xr^(3/4) instead of xr */
+    int j;
+    fi_union *fi;
+
+    fi = (fi_union *)pi;
+    for (j=576/4 - 1;j>=0;j--) {
+	fi[0].f = istep * xp[0] + (ROUNDFAC + MAGIC_FLOAT);
+	fi[1].f = istep * xp[1] + (ROUNDFAC + MAGIC_FLOAT);
+	fi[2].f = istep * xp[2] + (ROUNDFAC + MAGIC_FLOAT);
+	fi[3].f = istep * xp[3] + (ROUNDFAC + MAGIC_FLOAT);
+
+	fi[0].i -= MAGIC_INT;
+	fi[1].i -= MAGIC_INT;
+	fi[2].i -= MAGIC_INT;
+	fi[3].i -= MAGIC_INT;
+	fi+=4;
+	xp+=4;
+    }
+}
+
+#else
+
+/*********************************************************************
+ * XRPOW_FTOI is a macro to convert floats to ints.  
+ * if XRPOW_FTOI(x) = nearest_int(x), then QUANTFAC(x)=adj43asm[x]
+ *                                         ROUNDFAC= -0.0946
+ *
+ * if XRPOW_FTOI(x) = floor(x), then QUANTFAC(x)=asj43[x]   
+ *                                   ROUNDFAC=0.4054
+ *
+ * Note: using floor() or (int) is extermely slow. On machines where
+ * the TAKEHIRO_IEEE754_HACK code above does not work, it is worthwile
+ * to write some ASM for XRPOW_FTOI().  
+ *********************************************************************/
+#define XRPOW_FTOI(src,dest) ((dest) = (int)(src))
+#define QUANTFAC(rx)  adj43[rx]
+#define ROUNDFAC 0.4054
+
+
+static void quantize_xrpow(const FLOAT8 *xr, int *ix, FLOAT8 istep) {
+    /* quantize on xr^(3/4) instead of xr */
+    /* from Wilfried.Behne@t-online.de.  Reported to be 2x faster than 
+       the above code (when not using ASM) on PowerPC */
+    int j;
+
+    for ( j = 576/8; j > 0; --j) {
+	FLOAT8	x1, x2, x3, x4, x5, x6, x7, x8;
+	int	rx1, rx2, rx3, rx4, rx5, rx6, rx7, rx8;
+	x1 = *xr++ * istep;
+	x2 = *xr++ * istep;
+	XRPOW_FTOI(x1, rx1);
+	x3 = *xr++ * istep;
+	XRPOW_FTOI(x2, rx2);
+	x4 = *xr++ * istep;
+	XRPOW_FTOI(x3, rx3);
+	x5 = *xr++ * istep;
+	XRPOW_FTOI(x4, rx4);
+	x6 = *xr++ * istep;
+	XRPOW_FTOI(x5, rx5);
+	x7 = *xr++ * istep;
+	XRPOW_FTOI(x6, rx6);
+	x8 = *xr++ * istep;
+	XRPOW_FTOI(x7, rx7);
+	x1 += QUANTFAC(rx1);
+	XRPOW_FTOI(x8, rx8);
+	x2 += QUANTFAC(rx2);
+	XRPOW_FTOI(x1,*ix++);
+	x3 += QUANTFAC(rx3);
+	XRPOW_FTOI(x2,*ix++);
+	x4 += QUANTFAC(rx4);
+	XRPOW_FTOI(x3,*ix++);
+	x5 += QUANTFAC(rx5);
+	XRPOW_FTOI(x4,*ix++);
+	x6 += QUANTFAC(rx6);
+	XRPOW_FTOI(x5,*ix++);
+	x7 += QUANTFAC(rx7);
+	XRPOW_FTOI(x6,*ix++);
+	x8 += QUANTFAC(rx8);
+	XRPOW_FTOI(x7,*ix++);
+	XRPOW_FTOI(x8,*ix++);
+    }
+}
+
+
+
+
+
+
+static void quantize_xrpow_ISO( const FLOAT8 *xr, int *ix, FLOAT8 istep )
+{
+    /* quantize on xr^(3/4) instead of xr */
+    const FLOAT8 compareval0 = (1.0 - 0.4054)/istep;
+    int j;
+    /* depending on architecture, it may be worth calculating a few more
+       compareval's.
+
+       eg.  compareval1 = (2.0 - 0.4054/istep);
+       .. and then after the first compare do this ...
+       if compareval1>*xr then ix = 1;
+
+       On a pentium166, it's only worth doing the one compare (as done here),
+       as the second compare becomes more expensive than just calculating
+       the value. Architectures with slow FP operations may want to add some
+       more comparevals. try it and send your diffs statistically speaking
+
+       73% of all xr*istep values give ix=0
+       16% will give 1
+       4%  will give 2
+    */
+    for (j=576;j>0;j--) {
+	if (compareval0 > *xr) {
+	    *(ix++) = 0;
+	    xr++;
+	} else {
+	    /*    *(ix++) = (int)( istep*(*(xr++))  + 0.4054); */
+	    XRPOW_FTOI(  istep*(*(xr++))  + ROUNDFAC , *(ix++) );
+	}
+    }
+}
+
+#endif
+
+
 /*************************************************************************/
 /*	      ix_max							 */
 /*************************************************************************/
@@ -314,12 +499,12 @@ static int choose_table_nonMMX(
 
 int count_bits(
           lame_internal_flags * const gfc, 
-          int     * const ix,
     const FLOAT8  * const xr,
           gr_info * const gi)  
 {
     int bits = 0;
     int i, a1, a2;
+    int *const ix = gi->l3_enc;
     /* since quantize_xrpow uses table lookup, we need to check this first: */
     FLOAT8 w = (IXMAX_VAL) / IPOW20(gi->global_gain);
     for ( i = 0; i < 576; i++ )  {
@@ -439,9 +624,15 @@ int count_bits(
 
     /* Count the number of bits necessary to code the bigvalues region. */
     if (0 < a1)
-      gi->table_select[0] = gfc->choose_table(ix, ix + a1, &bits);
+	gi->table_select[0] = gfc->choose_table(ix, ix + a1, &bits);
     if (a1 < a2)
-      gi->table_select[1] = gfc->choose_table(ix + a1, ix + a2, &bits);
+	gi->table_select[1] = gfc->choose_table(ix + a1, ix + a2, &bits);
+    if (gfc->use_best_huffman == 2) {
+	gi->part2_3_length = bits;
+	best_huffman_divide (gfc, gi);
+	bits = gi->part2_3_length;
+    }
+
     return bits;
 }
 
@@ -473,7 +664,7 @@ recalc_divide_init(
 	int a1 = gfc->scalefac_band.l[r0 + 1], r0bits;
 	if (a1 >= bigv)
 	    break;
-	r0bits = cod_info->part2_length;
+	r0bits = 0;
 	r0t = gfc->choose_table(ix, ix + a1, &r0bits);
 
 	for (r1 = 0; r1 < 8; r1++) {
@@ -593,7 +784,7 @@ void best_huffman_divide(
 	recalc_divide_sub(gfc, &cod_info2, gi, ix, r01_bits,r01_div,r0_tbl,r1_tbl);
     else {
 	/* Count the number of bits necessary to code the bigvalues region. */
-	cod_info2.part2_3_length = a1 + cod_info2.part2_length;
+	cod_info2.part2_3_length = a1;
 	a1 = gfc->scalefac_band.l[7 + 1];
 	if (a1 > i) {
 	    a1 = i;
@@ -611,6 +802,8 @@ void best_huffman_divide(
 
 static const int slen1_n[16] = { 1, 1, 1, 1, 8, 2, 2, 2, 4, 4, 4, 8, 8, 8,16,16 };
 static const int slen2_n[16] = { 1, 2, 4, 8, 1, 2, 4, 8, 2, 4, 8, 2, 4, 8, 4, 8 };
+const int slen1_tab [16] = { 0, 0, 0, 0, 3, 1, 1, 1, 2, 2, 2, 3, 3, 3, 4, 4 };
+const int slen2_tab [16] = { 0, 1, 2, 3, 0, 1, 2, 3, 1, 2, 3, 1, 2, 3, 2, 3 };
 
 void
 scfsi_calc(int ch,
@@ -622,10 +815,6 @@ scfsi_calc(int ch,
     gr_info *g0 = &l3_side->tt[0][ch];
 
     static const int scfsi_band[5] = { 0, 6, 11, 16, 21 };
-#if 0
-    static const int slen1_n[16] = { 0, 1, 1, 1, 8, 2, 2, 2, 4, 4, 4, 8, 8, 8,16,16 };
-    static const int slen2_n[16] = { 0, 2, 4, 8, 1, 2, 4, 8, 2, 4, 8, 2, 4, 8, 4, 8 };
-#endif
 
     for (i = 0; i < 4; i++) 
 	l3_side->scfsi[ch][i] = 0;
@@ -686,7 +875,7 @@ void best_scalefac_store(
 
     /* use scalefac_scale if we can */
     gr_info *gi = &l3_side->tt[gr][ch];
-    int sfb,i,j,j2,l;
+    int sfb,i,j,l;
 
     /* remove scalefacs from bands with ix=0.  This idea comes
      * from the AAC ISO docs.  added mt 3/00 */
@@ -713,7 +902,6 @@ void best_scalefac_store(
 	}
     }
 
-    gi->part2_3_length -= gi->part2_length;
     if (!gi->scalefac_scale && !gi->preflag) {
 	int b, s = 0;
 	for (sfb = 0; sfb < gi->sfb_lmax; sfb++) {
@@ -755,7 +943,6 @@ void best_scalefac_store(
 	&& l3_side->tt[1][ch].block_type != SHORT_TYPE) {
       	scfsi_calc(ch, l3_side);
     }
-    gi->part2_3_length += gi->part2_length;
 }
 
 

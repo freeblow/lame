@@ -32,9 +32,9 @@
 
 
 extern const int nr_of_sfb_block[6][3][4];
-extern const char pretab[SBMAX_l];
-extern const char slen1_tab[16];
-extern const char slen2_tab[16];
+extern const int pretab[SBMAX_l];
+extern const int slen1_tab[16];
+extern const int slen2_tab[16];
 
 extern const scalefac_struct sfBandIndex[9];
 
@@ -53,43 +53,44 @@ typedef struct calc_noise_result_t {
     FLOAT8  over_noise;      /* sum of quantization noise > masking */
     FLOAT8  tot_noise;       /* sum of all quantization noise */
     FLOAT8  max_noise;       /* max quantization noise */
-    float   klemm_noise;
 } calc_noise_result;
 
-void    compute_ath (lame_global_flags * gfp, FLOAT8 ATH_l[SBPSY_l],
-                     FLOAT8 ATH_s[SBPSY_l]);
-
 int     on_pe (lame_global_flags *gfp, FLOAT8 pe[2][2], III_side_info_t * l3_side,
-               int targ_bits[2], int mean_bits, int gr);
+               int targ_bits[2], int mean_bits, int gr, int cbr);
 
 void    reduce_side (int targ_bits[2], FLOAT8 ms_ener_ratio, int mean_bits,
                      int max_bits);
 
+
+int     bin_search_StepSize (lame_internal_flags * const gfc, gr_info * const cod_info,
+                             const int desired_rate, const int ch,
+                             const FLOAT8 xrpow[576]);
+
 void    iteration_init (lame_global_flags *gfp);
+
 
 int     calc_xmin (lame_global_flags *gfp,
                    const III_psy_ratio * const ratio, const gr_info * const cod_info,
                    III_psy_xmin * const l3_xmin);
 
 int     calc_noise (const lame_internal_flags * const gfc,
-                    const int ix[576], const gr_info * const cod_info,
+                    const gr_info * const cod_info,
                     const III_psy_xmin * const l3_xmin,
-                    const III_scalefac_t * const scalefac,
                     III_psy_xmin * distort, calc_noise_result * const res);
+
+double get_klemm_noise(const III_psy_xmin	* const distort,
+		       const gr_info		* const gi);
 
 void    set_frame_pinfo (lame_global_flags *gfp,
                          III_psy_ratio ratio[2][2]);
 
 
-void    quantize_xrpow (const FLOAT8 *xr, int *ix, FLOAT8 istep);
-
-void    quantize_xrpow_ISO (const FLOAT8 *xr, int *ix, FLOAT8 istep);
 
 
 
 /* takehiro.c */
 
-int     count_bits (lame_internal_flags * const gfc, int * const ix, const FLOAT8 * const xr,
+int     count_bits (lame_internal_flags * const gfc, const FLOAT8 * const xr,
                     gr_info * const cod_info);
 
 

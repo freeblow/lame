@@ -38,10 +38,6 @@
 
 #define NSATHSCALE 100 // Assuming dynamic range=96dB, this value should be 92
 
-const char  slen1_tab [16] = { 0, 0, 0, 0, 3, 1, 1, 1, 2, 2, 2, 3, 3, 3, 4, 4 };
-const char  slen2_tab [16] = { 0, 1, 2, 3, 0, 1, 2, 3, 1, 2, 3, 1, 2, 3, 2, 3 };
-
-
 /*
   The following table is used to implement the scalefactor
   partitioning for MPEG2 as described in section
@@ -86,7 +82,7 @@ const int  nr_of_sfb_block [6] [3] [4] =
 
 
 /* Table B.6: layer3 preemphasis */
-const char  pretab [SBMAX_l] =
+const int  pretab [SBMAX_l] =
 {
     0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
     1, 1, 1, 1, 2, 2, 3, 3, 3, 2, 0
@@ -152,46 +148,6 @@ FLOAT8 pow43[PRECALC_SIZE];
 FLOAT8 adj43asm[PRECALC_SIZE];
 FLOAT8 adj43[PRECALC_SIZE];
 
-/************************************************************************/
-/*  initialization for iteration_loop */
-/************************************************************************/
-void
-iteration_init( lame_global_flags *gfp)
-{
-  lame_internal_flags *gfc=gfp->internal_flags;
-  III_side_info_t * const l3_side = &gfc->l3_side;
-  int i;
-
-  if ( gfc->iteration_init_init==0 ) {
-    gfc->iteration_init_init=1;
-
-    l3_side->main_data_begin = 0;
-    compute_ath(gfp,gfc->ATH->l,gfc->ATH->s);
-
-    pow43[0] = 0.0;
-    for(i=1;i<PRECALC_SIZE;i++)
-        pow43[i] = pow((FLOAT8)i, 4.0/3.0);
-
-    adj43asm[0] = 0.0;
-    for (i = 1; i < PRECALC_SIZE; i++)
-      adj43asm[i] = i - 0.5 - pow(0.5 * (pow43[i - 1] + pow43[i]),0.75);
-    for (i = 0; i < PRECALC_SIZE-1; i++)
-	adj43[i] = (i + 1) - pow(0.5 * (pow43[i] + pow43[i + 1]), 0.75);
-    adj43[i] = 0.5;
-    iipow20_ = &iipow20[210];
-    for (i = 0; i < Q_MAX; i++) {
-        iipow20[i] = pow(2.0, (double)(i - 210) * 0.1875);
-	ipow20[i] = pow(2.0, (double)(i - 210) * -0.1875);
-	pow20[i] = pow(2.0, (double)(i - 210) * 0.25);
-    }
-    huffman_init(gfc);
-  }
-}
-
-
-
-
-
 /* 
 compute the ATH for each scalefactor band 
 cd range:  0..96db
@@ -221,7 +177,7 @@ ATH = ATH * 2.5e-10      (ener)
 
 */
 
-FLOAT8 ATHmdct( lame_global_flags *gfp, FLOAT8 f )
+static FLOAT8 ATHmdct( lame_global_flags *gfp, FLOAT8 f )
 {
     lame_internal_flags *gfc = gfp->internal_flags;
     FLOAT8 ath;
@@ -241,10 +197,11 @@ FLOAT8 ATHmdct( lame_global_flags *gfp, FLOAT8 f )
     ath = pow( 10.0, ath/10.0 );
     return ath;
 }
- 
 
-void compute_ath( lame_global_flags *gfp, FLOAT8 ATH_l[], FLOAT8 ATH_s[] )
+static void compute_ath( lame_global_flags *gfp )
 {
+    FLOAT8 *ATH_l = gfp->internal_flags->ATH->l;
+    FLOAT8 *ATH_s = gfp->internal_flags->ATH->s;
     lame_internal_flags *gfc = gfp->internal_flags;
     int sfb, i, start, end;
     FLOAT8 ATH_f;
@@ -300,6 +257,43 @@ void compute_ath( lame_global_flags *gfp, FLOAT8 ATH_l[], FLOAT8 ATH_s[] )
 }
 
 
+/************************************************************************/
+/*  initialization for iteration_loop */
+/************************************************************************/
+void
+iteration_init( lame_global_flags *gfp)
+{
+  lame_internal_flags *gfc=gfp->internal_flags;
+  III_side_info_t * const l3_side = &gfc->l3_side;
+  int i;
+
+  if ( gfc->iteration_init_init==0 ) {
+    gfc->iteration_init_init=1;
+
+    l3_side->main_data_begin = 0;
+    compute_ath(gfp);
+
+    pow43[0] = 0.0;
+    for(i=1;i<PRECALC_SIZE;i++)
+        pow43[i] = pow((FLOAT8)i, 4.0/3.0);
+
+    adj43asm[0] = 0.0;
+    for (i = 1; i < PRECALC_SIZE; i++)
+      adj43asm[i] = i - 0.5 - pow(0.5 * (pow43[i - 1] + pow43[i]),0.75);
+    for (i = 0; i < PRECALC_SIZE-1; i++)
+	adj43[i] = (i + 1) - pow(0.5 * (pow43[i] + pow43[i + 1]), 0.75);
+    adj43[i] = 0.5;
+    iipow20_ = &iipow20[210];
+    for (i = 0; i < Q_MAX; i++) {
+        iipow20[i] = pow(2.0, (double)(i - 210) * 0.1875);
+	ipow20[i] = pow(2.0, (double)(i - 210) * -0.1875);
+	pow20[i] = pow(2.0, (double)(i - 210) * 0.25);
+    }
+    huffman_init(gfc);
+  }
+}
+
+
 
 
 
@@ -309,7 +303,7 @@ void compute_ath( lame_global_flags *gfp, FLOAT8 ATH_l[], FLOAT8 ATH_s[] )
  * bugfixes rh 8/01: often allocated more than the allowed 4095 bits
  ************************************************************************/
 int on_pe( lame_global_flags *gfp, FLOAT8 pe[][2], III_side_info_t *l3_side,
-           int targ_bits[2], int mean_bits, int gr )
+           int targ_bits[2], int mean_bits, int gr, int cbr )
 {
     lame_internal_flags * gfc = gfp->internal_flags;
     gr_info *   cod_info;
@@ -319,9 +313,8 @@ int on_pe( lame_global_flags *gfp, FLOAT8 pe[][2], III_side_info_t *l3_side,
     int     ch;
 
     /* allocate targ_bits for granule */
-    ResvMaxBits( gfp, mean_bits, &tbits, &extra_bits );
+    ResvMaxBits( gfp, mean_bits, &tbits, &extra_bits, cbr);
     max_bits = tbits + extra_bits;
-    mean_bits /= gfc->channels_out;
     if (max_bits > MAX_BITS) /* hard limit per granule */
         max_bits = MAX_BITS;
     
@@ -340,14 +333,14 @@ int on_pe( lame_global_flags *gfp, FLOAT8 pe[][2], III_side_info_t *l3_side,
             add_bits[ch] = (pe[gr][ch]-750) / 1.4;
             /* short blocks us a little extra, no matter what the pe */
             if ( cod_info->block_type == SHORT_TYPE ) {
-	        if (add_bits[ch] < mean_bits/2) 
-                    add_bits[ch] = mean_bits/2;
+	        if (add_bits[ch] < mean_bits/4) 
+                    add_bits[ch] = mean_bits/4;
             }
         }
 
         /* at most increase bits by 1.5*average */
-        if (add_bits[ch] > mean_bits*3/2)
-            add_bits[ch] = mean_bits*3/2;
+        if (add_bits[ch] > mean_bits*3/4) 
+            add_bits[ch] = mean_bits*3/4;
         if (add_bits[ch] < 0) 
             add_bits[ch] = 0;
 
@@ -428,7 +421,7 @@ void reduce_side(int targ_bits[2],FLOAT8 ms_ener_ratio,int mean_bits,int max_bit
  *  affects the higher frequencies more than the lower ones
  */
 
-FLOAT8 athAdjust( FLOAT8 a, FLOAT8 x, FLOAT8 athFloor )
+static FLOAT8 athAdjust( FLOAT8 a, FLOAT8 x, FLOAT8 athFloor )
 {
     /*  work in progress
      */
@@ -584,19 +577,35 @@ int calc_xmin(
 // + 6 dB  =>  +3.69
 // +10 dB  =>  +6.45
 
-double penalties ( double noise )
+static double penalties ( double noise )
 {
     return log ( 0.368 + 0.632 * noise * noise * noise );
+}
+
+double get_klemm_noise(
+    const III_psy_xmin  *distort,
+    const gr_info	*const gi
+    )
+{
+    int sfb, i;
+    double klemm_noise = 1E-37;
+    for (sfb = 0; sfb < gi->psy_lmax; sfb++) {
+	klemm_noise += penalties(distort->l[sfb]);
+    }
+    for (sfb = gi->sfb_smin; sfb < gi->psy_smax; sfb++) {
+	for ( i = 0; i < 3; i++ ) {
+	    klemm_noise += penalties(distort->s[sfb][i]);
+	}
+    }
+    return Max(1e-20, klemm_noise);
 }
 
 /*  mt 5/99:  Function: Improved calc_noise for a single channel   */
 
 int  calc_noise( 
         const lame_internal_flags           * const gfc,
-        const int                       ix [576],
         const gr_info           * const cod_info,
         const III_psy_xmin      * const l3_xmin, 
-        const III_scalefac_t    * const scalefac,
               III_psy_xmin      * xfsf,
               calc_noise_result * const res )
 {
@@ -604,8 +613,9 @@ int  calc_noise(
     FLOAT8 over_noise_db = 0;
     FLOAT8 tot_noise_db  = 0;     /*    0 dB relative to masking */
     FLOAT8 max_noise  = 1E-20; /* -200 dB relative to masking */
-    double klemm_noise = 1E-37;
     int j = 0;
+    const int *ix = cod_info->l3_enc;
+    const III_scalefac_t * const scalefac = &cod_info->scalefac;
 
     for (sfb = 0; sfb < cod_info->psy_lmax; sfb++) {
 	int s =
@@ -623,7 +633,6 @@ int  calc_noise(
 	} while (--l > 0);
 	noise = xfsf->l[sfb] = noise / l3_xmin->l[sfb];
 	max_noise=Max(max_noise,noise);
-	klemm_noise += penalties (noise);
 
 	noise = log10(Max(noise,1E-20));
 	/* multiplying here is adding in dB, but can overflow */
@@ -657,7 +666,6 @@ int  calc_noise(
 	    noise = xfsf->s[sfb][i]  = noise / l3_xmin->s[sfb][i];
 
 	    max_noise    = Max(max_noise,noise);
-	    klemm_noise += penalties (noise);
 
 	    noise = log10(Max(noise,1E-20));
 	    tot_noise_db += noise;
@@ -670,10 +678,9 @@ int  calc_noise(
     }
 
     res->over_count = over;
-    res->tot_noise   = 10.*tot_noise_db;
-    res->over_noise  = 10.*over_noise_db;
-    res->max_noise   = 10.*log10(max_noise);
-    res->klemm_noise = klemm_noise;
+    res->tot_noise   = tot_noise_db;
+    res->over_noise  = over_noise_db;
+    res->max_noise   = log10(max_noise);
 
     return over;
 }
@@ -708,7 +715,6 @@ void set_pinfo (
         lame_global_flags *gfp,
               gr_info        * const cod_info,
         const III_psy_ratio  * const ratio, 
-        const III_scalefac_t * const scalefac,
         const int                    gr,
         const int                    ch )
 {
@@ -717,6 +723,7 @@ void set_pinfo (
     int j,i,l,start,end,bw;
     FLOAT8 en0,en1;
     FLOAT ifqstep = ( cod_info->scalefac_scale == 0 ) ? .5 : 1.0;
+    const III_scalefac_t * const scalefac = &cod_info->scalefac;
 
 
     III_psy_xmin l3_xmin;
@@ -724,8 +731,7 @@ void set_pinfo (
     III_psy_xmin xfsf;
 
     calc_xmin (gfp, ratio, cod_info, &l3_xmin);
-    calc_noise (gfc, cod_info->l3_enc, cod_info,
-		&l3_xmin, scalefac, &xfsf, &noise);
+    calc_noise (gfc, cod_info, &l3_xmin, &xfsf, &noise);
 
     if (cod_info->block_type == SHORT_TYPE) {
         for (j=0, sfb = 0; sfb < SBMAX_s; sfb++ )  {
@@ -738,41 +744,6 @@ void set_pinfo (
                     ++j;
                 }
                 en0=Max(en0/bw,1e-20);
-
-
-#if 0
-{
-    double tot1,tot2;
-    if (sfb<SBMAX_s-1) {
-        if (sfb==0) {
-            tot1=0;
-            tot2=0;
-        }
-        tot1 += en0;
-        tot2 += ratio->en.s[sfb][i];
-
-        DEBUGF("%i %i sfb=%i mdct=%f fft=%f  fft-mdct=%f db \n",
-                gr,ch,sfb,
-                10*log10(Max(1e-25,ratio->en.s[sfb][i])),
-                10*log10(Max(1e-25,en0)),
-                10*log10((Max(1e-25,en0)/Max(1e-25,ratio->en.s[sfb][i]))));
-
-        if (sfb==SBMAX_s-2) {
-            DEBUGF("%i %i toti %f %f ratio=%f db \n",gr,ch,
-                    10*log10(Max(1e-25,tot2)),
-                    10*log(Max(1e-25,tot1)),
-                    10*log10(Max(1e-25,tot1)/(Max(1e-25,tot2))));
-
-        }
-    }
-    /*
-        masking: multiplied by en0/fft_energy
-        average seems to be about -135db.
-     */
-}
-#endif
-
-
                 /* convert to MDCT units */
                 en1=1e15;  /* scaling so it shows up on FFT plot */
                 gfc->pinfo->xfsf_s[gr][ch][3*sfb+i] 
@@ -789,16 +760,13 @@ void set_pinfo (
                 gfc->pinfo->thr_s[gr][ch][3*sfb+i] = 
                         en1*Max(en0*ratio->thm.s[sfb][i],gfc->ATH->s[sfb]);
 
- 
                 /* there is no scalefactor bands >= SBPSY_s */
+                gfc->pinfo->LAMEsfb_s[gr][ch][3*sfb+i] =
+						-2*cod_info->subblock_gain[i];
                 if (sfb < SBPSY_s) {
-                    gfc->pinfo->LAMEsfb_s[gr][ch][3*sfb+i]=
-                                            -ifqstep*scalefac->s[sfb][i];
-                } else {
-                    gfc->pinfo->LAMEsfb_s[gr][ch][3*sfb+i]=0;
+                    gfc->pinfo->LAMEsfb_s[gr][ch][3*sfb+i] -=
+						ifqstep*scalefac->s[sfb][i];
                 }
-                gfc->pinfo->LAMEsfb_s[gr][ch][3*sfb+i] -=
-                                             2*cod_info->subblock_gain[i];
             }
         }
     } else {
@@ -809,43 +777,6 @@ void set_pinfo (
             for ( en0 = 0.0, l = start; l < end; l++ ) 
                 en0 += cod_info->xr[l] * cod_info->xr[l];
             en0/=bw;
-      /*
-    DEBUGF("diff  = %f \n",10*log10(Max(ratio[gr][ch].en.l[sfb],1e-20))
-                            -(10*log10(en0)+150));
-       */
-
-#if 0
- {
-    double tot1,tot2;
-    if (sfb==0) {
-        tot1=0;
-        tot2=0;
-    }
-    tot1 += en0;
-    tot2 += ratio->en.l[sfb];
-
-
-    DEBUGF("%i %i sfb=%i mdct=%f fft=%f  fft-mdct=%f db \n",
-            gr,ch,sfb,
-            10*log10(Max(1e-25,ratio->en.l[sfb])),
-            10*log10(Max(1e-25,en0)),
-            10*log10((Max(1e-25,en0)/Max(1e-25,ratio->en.l[sfb]))));
-
-    if (sfb==SBMAX_l-1) {
-        DEBUGF("%i %i toti %f %f ratio=%f db \n",
-            gr,ch,
-            10*log10(Max(1e-25,tot2)),
-            10*log(Max(1e-25,tot1)),
-            10*log10(Max(1e-25,tot1)/(Max(1e-25,tot2))));
-    }
-    /*
-        masking: multiplied by en0/fft_energy
-        average seems to be about -147db.
-     */
-}
-#endif
-
-
             /* convert to MDCT units */
             en1=1e15;  /* scaling so it shows up on FFT plot */
             gfc->pinfo->xfsf[gr][ch][sfb] =  en1*xfsf.l[sfb]*l3_xmin.l[sfb]/bw;
@@ -860,18 +791,14 @@ void set_pinfo (
                              en1*Max(en0*ratio->thm.l[sfb],gfc->ATH->l[sfb]);
 
             /* there is no scalefactor bands >= SBPSY_l */
-            if (sfb<SBPSY_l) {
-                if (scalefac->l[sfb]<0)  /* scfsi! */
-                    gfc->pinfo->LAMEsfb[gr][ch][sfb] =
-                                            gfc->pinfo->LAMEsfb[0][ch][sfb];
-                else
-                    gfc->pinfo->LAMEsfb[gr][ch][sfb] = -ifqstep*scalefac->l[sfb];
-            }else{
-                gfc->pinfo->LAMEsfb[gr][ch][sfb] = 0;
-            }
-
+	    gfc->pinfo->LAMEsfb[gr][ch][sfb] = 0;
             if (cod_info->preflag && sfb>=11) 
-                gfc->pinfo->LAMEsfb[gr][ch][sfb] -= ifqstep*pretab[sfb];
+                gfc->pinfo->LAMEsfb[gr][ch][sfb] = -ifqstep*pretab[sfb];
+
+            if (sfb<SBPSY_l) {
+                assert(scalefac->l[sfb]>=0);  /* no scfsi! */
+		gfc->pinfo->LAMEsfb[gr][ch][sfb] -= ifqstep*scalefac->l[sfb];
+	    }
         } /* for sfb */
     } /* block type long */
     gfc->pinfo->LAMEqss     [gr][ch] = cod_info->global_gain;
@@ -900,227 +827,32 @@ void set_frame_pinfo(
         III_psy_ratio   ratio    [2][2])
 {
     lame_internal_flags *gfc=gfp->internal_flags;
-    unsigned int          sfb;
     int                   ch;
     int                   gr;
-    III_scalefac_t        act_scalefac [2];
-    int scsfi[2] = {0,0};
-    
-    
+
     gfc->masking_lower = 1.0;
-    
-    /* reconstruct the scalefactors in case SCSFI was used 
-     */
-    for (ch = 0; ch < gfc->channels_out; ch ++) {
-        for (sfb = 0; sfb < SBMAX_l; sfb ++) {
-            gr_info *cod_info = &gfc->l3_side.tt[0][ch];
-            if (gfc->l3_side.tt[1][ch].scalefac.l[sfb] == -1) {/* scfsi */
-                act_scalefac[ch].l[sfb] = cod_info->scalefac.l[sfb];
-                scsfi[ch] = 1;
-            } else {
-                act_scalefac[ch].l[sfb] = gfc->l3_side.tt[1][ch].scalefac.l[sfb];
-            }
-        }
-    }
-    
+
     /* for every granule and channel patch l3_enc and set info
      */
     for (gr = 0; gr < gfc->mode_gr; gr ++) {
         for (ch = 0; ch < gfc->channels_out; ch ++) {
             gr_info *cod_info = &gfc->l3_side.tt[gr][ch];
-            
-            if (gr == 1 && scsfi[ch]) 
-                set_pinfo (gfp, cod_info, &ratio[gr][ch], &act_scalefac[ch],
-			   gr, ch);
-            else
-                set_pinfo (gfp, cod_info, &ratio[gr][ch], &cod_info->scalefac,
-			   gr, ch);
-        } /* for ch */
+	    III_scalefac_t        scalefac_sav = cod_info->scalefac;
+
+	    /* reconstruct the scalefactors in case SCFSI was used 
+	     */
+            if (gr == 1) {
+		int sfb;
+		for (sfb = 0; sfb < cod_info->sfb_lmax; sfb++) {
+		    if (cod_info->scalefac.l[sfb] < 0) /* scfsi */
+			cod_info->scalefac.l[sfb] = gfc->l3_side.tt[0][ch].scalefac.l[sfb];
+		}
+	    }
+
+	    set_pinfo (gfp, cod_info, &ratio[gr][ch], gr, ch);
+	    cod_info->scalefac = scalefac_sav;
+	} /* for ch */
     }    /* for gr */
 }
-        
 
 
-
-/*********************************************************************
- * nonlinear quantization of xr 
- * More accurate formula than the ISO formula.  Takes into account
- * the fact that we are quantizing xr -> ix, but we want ix^4/3 to be 
- * as close as possible to x^4/3.  (taking the nearest int would mean
- * ix is as close as possible to xr, which is different.)
- * From Segher Boessenkool <segher@eastsite.nl>  11/1999
- * ASM optimization from 
- *    Mathew Hendry <scampi@dial.pipex.com> 11/1999
- *    Acy Stapp <AStapp@austin.rr.com> 11/1999
- *    Takehiro Tominaga <tominaga@isoternet.org> 11/1999
- * 9/00: ASM code removed in favor of IEEE754 hack.  If you need
- * the ASM code, check CVS circa Aug 2000.  
- *********************************************************************/
-
-
-#ifdef TAKEHIRO_IEEE754_HACK
-
-typedef union {
-    float f;
-    int i;
-} fi_union;
-
-#define MAGIC_FLOAT (65536*(128))
-#define MAGIC_INT 0x4b000000
-
-void quantize_xrpow(const FLOAT8 *xp, int *pi, FLOAT8 istep)
-{
-    /* quantize on xr^(3/4) instead of xr */
-    int j;
-    fi_union *fi;
-
-    fi = (fi_union *)pi;
-    for (j = 576 / 4 - 1; j >= 0; --j) {
-	double x0 = istep * xp[0];
-	double x1 = istep * xp[1];
-	double x2 = istep * xp[2];
-	double x3 = istep * xp[3];
-
-	x0 += MAGIC_FLOAT; fi[0].f = x0;
-	x1 += MAGIC_FLOAT; fi[1].f = x1;
-	x2 += MAGIC_FLOAT; fi[2].f = x2;
-	x3 += MAGIC_FLOAT; fi[3].f = x3;
-
-	fi[0].f = x0 + (adj43asm - MAGIC_INT)[fi[0].i];
-	fi[1].f = x1 + (adj43asm - MAGIC_INT)[fi[1].i];
-	fi[2].f = x2 + (adj43asm - MAGIC_INT)[fi[2].i];
-	fi[3].f = x3 + (adj43asm - MAGIC_INT)[fi[3].i];
-
-	fi[0].i -= MAGIC_INT;
-	fi[1].i -= MAGIC_INT;
-	fi[2].i -= MAGIC_INT;
-	fi[3].i -= MAGIC_INT;
-	fi += 4;
-	xp += 4;
-    }
-}
-
-#  define ROUNDFAC -0.0946
-void quantize_xrpow_ISO(const FLOAT8 *xp, int *pi, FLOAT8 istep)
-{
-    /* quantize on xr^(3/4) instead of xr */
-    int j;
-    fi_union *fi;
-
-    fi = (fi_union *)pi;
-    for (j=576/4 - 1;j>=0;j--) {
-	fi[0].f = istep * xp[0] + (ROUNDFAC + MAGIC_FLOAT);
-	fi[1].f = istep * xp[1] + (ROUNDFAC + MAGIC_FLOAT);
-	fi[2].f = istep * xp[2] + (ROUNDFAC + MAGIC_FLOAT);
-	fi[3].f = istep * xp[3] + (ROUNDFAC + MAGIC_FLOAT);
-
-	fi[0].i -= MAGIC_INT;
-	fi[1].i -= MAGIC_INT;
-	fi[2].i -= MAGIC_INT;
-	fi[3].i -= MAGIC_INT;
-	fi+=4;
-	xp+=4;
-    }
-}
-
-#else
-
-/*********************************************************************
- * XRPOW_FTOI is a macro to convert floats to ints.  
- * if XRPOW_FTOI(x) = nearest_int(x), then QUANTFAC(x)=adj43asm[x]
- *                                         ROUNDFAC= -0.0946
- *
- * if XRPOW_FTOI(x) = floor(x), then QUANTFAC(x)=asj43[x]   
- *                                   ROUNDFAC=0.4054
- *
- * Note: using floor() or (int) is extermely slow. On machines where
- * the TAKEHIRO_IEEE754_HACK code above does not work, it is worthwile
- * to write some ASM for XRPOW_FTOI().  
- *********************************************************************/
-#define XRPOW_FTOI(src,dest) ((dest) = (int)(src))
-#define QUANTFAC(rx)  adj43[rx]
-#define ROUNDFAC 0.4054
-
-
-void quantize_xrpow(const FLOAT8 *xr, int *ix, FLOAT8 istep) {
-    /* quantize on xr^(3/4) instead of xr */
-    /* from Wilfried.Behne@t-online.de.  Reported to be 2x faster than 
-       the above code (when not using ASM) on PowerPC */
-    int j;
-
-    for ( j = 576/8; j > 0; --j) {
-	FLOAT8	x1, x2, x3, x4, x5, x6, x7, x8;
-	int	rx1, rx2, rx3, rx4, rx5, rx6, rx7, rx8;
-	x1 = *xr++ * istep;
-	x2 = *xr++ * istep;
-	XRPOW_FTOI(x1, rx1);
-	x3 = *xr++ * istep;
-	XRPOW_FTOI(x2, rx2);
-	x4 = *xr++ * istep;
-	XRPOW_FTOI(x3, rx3);
-	x5 = *xr++ * istep;
-	XRPOW_FTOI(x4, rx4);
-	x6 = *xr++ * istep;
-	XRPOW_FTOI(x5, rx5);
-	x7 = *xr++ * istep;
-	XRPOW_FTOI(x6, rx6);
-	x8 = *xr++ * istep;
-	XRPOW_FTOI(x7, rx7);
-	x1 += QUANTFAC(rx1);
-	XRPOW_FTOI(x8, rx8);
-	x2 += QUANTFAC(rx2);
-	XRPOW_FTOI(x1,*ix++);
-	x3 += QUANTFAC(rx3);
-	XRPOW_FTOI(x2,*ix++);
-	x4 += QUANTFAC(rx4);
-	XRPOW_FTOI(x3,*ix++);
-	x5 += QUANTFAC(rx5);
-	XRPOW_FTOI(x4,*ix++);
-	x6 += QUANTFAC(rx6);
-	XRPOW_FTOI(x5,*ix++);
-	x7 += QUANTFAC(rx7);
-	XRPOW_FTOI(x6,*ix++);
-	x8 += QUANTFAC(rx8);
-	XRPOW_FTOI(x7,*ix++);
-	XRPOW_FTOI(x8,*ix++);
-    }
-}
-
-
-
-
-
-
-void quantize_xrpow_ISO( const FLOAT8 *xr, int *ix, FLOAT8 istep )
-{
-    /* quantize on xr^(3/4) instead of xr */
-    const FLOAT8 compareval0 = (1.0 - 0.4054)/istep;
-    int j;
-    /* depending on architecture, it may be worth calculating a few more
-       compareval's.
-
-       eg.  compareval1 = (2.0 - 0.4054/istep);
-       .. and then after the first compare do this ...
-       if compareval1>*xr then ix = 1;
-
-       On a pentium166, it's only worth doing the one compare (as done here),
-       as the second compare becomes more expensive than just calculating
-       the value. Architectures with slow FP operations may want to add some
-       more comparevals. try it and send your diffs statistically speaking
-
-       73% of all xr*istep values give ix=0
-       16% will give 1
-       4%  will give 2
-    */
-    for (j=576;j>0;j--) {
-	if (compareval0 > *xr) {
-	    *(ix++) = 0;
-	    xr++;
-	} else {
-	    /*    *(ix++) = (int)( istep*(*(xr++))  + 0.4054); */
-	    XRPOW_FTOI(  istep*(*(xr++))  + ROUNDFAC , *(ix++) );
-	}
-    }
-}
-
-#endif
