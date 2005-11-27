@@ -459,7 +459,6 @@ common_sources = \
 	frontend/parse.c \
 	frontend/timestatus.c \
 	frontend/lametime.c \
-	frontend/console.c \
 	frontend/brhist.c
 
 lamelib_sources = \

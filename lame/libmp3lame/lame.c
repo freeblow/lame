@@ -2,7 +2,11 @@
 /*
  *	LAME MP3 encoding engine
  *
- *	Copyright (c) 1999 Mark Taylor
+ *	Copyright (c) 1999-2000 Mark Taylor
+ *	Copyright (c) 2000-2005 Takehiro Tominaga
+ *	Copyright (c) 2000-2005 Robert Hegemann
+ *	Copyright (c) 2000-2005 Gabriel Bouvigne
+ *	Copyright (c) 2000-2004 Alexander Leidinger
  *
  * This library is free software; you can redistribute it and/or
  * modify it under the terms of the GNU Library General Public
@@ -40,7 +44,6 @@
 #include "machine.h"
 #include "gain_analysis.h"
 #include "set_get.h"
-#include "quantize.h"
 
 #if defined(__FreeBSD__) && !defined(__alpha__)
 #include <floatingpoint.h>
@@ -680,7 +683,7 @@ lame_init_params(lame_global_flags * const gfp)
        if we can't store them */
     if (!gfp->bWriteVbrTag){
         gfp->findReplayGain = 0;
-        gfp->decode_on_the_fly = 0;
+	gfp->decode_on_the_fly = 0;
         gfc->findPeakSample = 0;
     }
     gfc->findReplayGain = gfp->findReplayGain;
@@ -931,8 +934,7 @@ lame_init_params(lame_global_flags * const gfp)
             gfc->sfb21_extra = 0;
         else 
             gfc->sfb21_extra = (gfp->out_samplerate > 44000);
-
-        gfc->iteration_loop = &VBR_new_iteration_loop;            
+            
         break;
         
     }
@@ -965,7 +967,6 @@ lame_init_params(lame_global_flags * const gfp)
         if (gfp->quality < 0)
             gfp->quality = LAME_DEFAULT_QUALITY;
 
-        gfc->iteration_loop = &VBR_old_iteration_loop;            
         break;
     }
 
@@ -990,12 +991,6 @@ lame_init_params(lame_global_flags * const gfp)
         gfc->PSY->mask_adjust = gfp->maskingadjust;
         gfc->PSY->mask_adjust_short = gfp->maskingadjust_short;
 
-        if (vbrmode == vbr_off) {
-            gfc->iteration_loop = &CBR_iteration_loop;            
-        }
-        else {
-            gfc->iteration_loop = &ABR_iteration_loop;            
-        }    
         break;
     }
     }
@@ -1126,22 +1121,6 @@ lame_init_params(lame_global_flags * const gfp)
     if ( gfc->sparseA < 0 ) gfc->sparseA = 0;
     if ( gfc->sparseB < 0 ) gfc->sparseB = 0;
     if ( gfc->sparseB > gfc->sparseA ) gfc->sparseB = gfc->sparseA;
-
-    switch (gfp->quantization_type) {
-    default:
-    case 0:
-        /* nothing to change */
-        break;
-    case 1:
-        gfc->quantization = 0;
-        gfc->PSY->mask_adjust += 0.68125;
-        gfc->PSY->mask_adjust_short += 0.68125;
-        break;
-    case 2:
-        gfc->quantization = 1;
-        break;
-    }
-        
 
     iteration_init(gfp);
     psymodel_init(gfp);

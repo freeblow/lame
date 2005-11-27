@@ -245,9 +245,7 @@ id3tag_set_comment(lame_global_flags *gfp, const char *comment)
 void
 id3tag_set_track(lame_global_flags *gfp, const char *track)
 {
-    char *trackcount;
     lame_internal_flags *gfc = gfp->internal_flags;
-
     if (track && *track) {
         int num = atoi(track);
         if (num < 0) {
@@ -261,22 +259,6 @@ id3tag_set_track(lame_global_flags *gfp, const char *track)
         if (num) {
             gfc->tag_spec.track = num;
             gfc->tag_spec.flags |= CHANGED_FLAG;
-        }
-
-        /* Look for the total track count after a "/", same restrictions */
-        trackcount = strchr(track, '/');
-        if (trackcount && *trackcount) {
-            num = atoi(trackcount + 1);
-            if (num < 0) {
-                num = 0;
-            }
-            if (num > 255) {
-                num = 255;
-            }
-            if (num) {
-                gfc->tag_spec.trackcount = num;
-                gfc->tag_spec.flags |= CHANGED_FLAG;
-            }
         }
     }
 }
@@ -351,7 +333,6 @@ set_4_byte_value(unsigned char *bytes, unsigned long value)
 #define TRACK_FRAME_ID FRAME_ID('T', 'R', 'C', 'K')
 #define GENRE_FRAME_ID FRAME_ID('T', 'C', 'O', 'N')
 #define ENCODER_FRAME_ID FRAME_ID('T', 'S', 'S', 'E')
-#define PLAYLENGTH_FRAME_ID FRAME_ID('T', 'L', 'E', 'N')
 
 static unsigned char *
 set_frame(unsigned char *frame, unsigned long id, const char *text,
@@ -409,12 +390,9 @@ id3tag_write_v2(lame_global_flags *gfp)
             size_t tag_size;
             char encoder[20];
             size_t encoder_length;
-	    unsigned long playlength_ms;
-	    char playlength[20];
-	    size_t playlength_length;
             char year[5];
             size_t year_length;
-            char track[7];
+            char track[3];
             size_t track_length;
             char genre[6];
             size_t genre_length;
@@ -422,31 +400,21 @@ id3tag_write_v2(lame_global_flags *gfp)
             unsigned char *p;
             size_t adjusted_tag_size;
             unsigned int index;
-	    /* calculate playlength in milliseconds */
-	    playlength_ms = (unsigned long) ((double)gfp->num_samples * 1000.0) / 
-                (gfp->num_channels * gfp->in_samplerate);
             /* calulate size of tag starting with 10-byte tag header */
             tag_size = 10;
 #if defined(__hpux) || defined(__svr4__) || defined(M_UNIX) || defined(_AIX)
             encoder_length = sprintf(encoder,
                             "LAME v%s", get_lame_short_version());
-	    if (encoder_length+1 > sizeof(encoder)) abort();
-	    playlength_length = sprintf(playlength, "%lu", playlength_ms);
-	    if (playlength_length+1 > sizeof(playlength)) abort();
 #else
 #if defined(__sun__)
             (void) sprintf(encoder, "LAME v%s", get_lame_short_version());
             encoder_length = strlen(encoder);
-	    (void) sprintf(playlength, "%lu", playlength_ms);
-	    playlength_length = strlen(playlength);
 #else
             encoder_length = snprintf(encoder, sizeof(encoder),
                             "LAME v%s", get_lame_short_version());
-	    playlength_length = snprintf(playlength, sizeof(playlength), "%lu", playlength_ms);
 #endif
 #endif
             tag_size += 11 + encoder_length;
-            tag_size += 11 + playlength_length;
             if (title_length) {
                 /* add 10-byte frame header, 1 encoding descriptor byte ... */
                 tag_size += 11 + title_length;
@@ -459,7 +427,6 @@ id3tag_write_v2(lame_global_flags *gfp)
             }
             if (gfc->tag_spec.year) {
                 year_length = sprintf(year, "%d", gfc->tag_spec.year);
-		if (year_length+1 > sizeof(year)) abort();
                 tag_size += 11 + year_length;
             } else {
                 year_length = 0;
@@ -470,20 +437,13 @@ id3tag_write_v2(lame_global_flags *gfp)
                 tag_size += 15 + comment_length;
             }
             if (gfc->tag_spec.track) {
-                if (gfc->tag_spec.trackcount) {
-                    track_length = sprintf(track, "%d/%d", gfc->tag_spec.track,
-                                  gfc->tag_spec.trackcount);
-                } else {
-                    track_length = sprintf(track, "%d", gfc->tag_spec.track);
-                }
-		if (track_length+1 > sizeof(track)) abort();
+                track_length = sprintf(track, "%d", gfc->tag_spec.track);
                 tag_size += 11 + track_length;
             } else {
                 track_length = 0;
             }
             if (gfc->tag_spec.genre != GENRE_NUM_UNKNOWN) {
                 genre_length = sprintf(genre, "(%d)", gfc->tag_spec.genre);
-		if (genre_length+1 > sizeof(genre_length)) abort();
                 tag_size += 11 + genre_length;
             } else {
                 genre_length = 0;
@@ -524,7 +484,6 @@ id3tag_write_v2(lame_global_flags *gfp)
 
             /* set each frame in tag */
             p = set_frame(p, ENCODER_FRAME_ID, encoder, encoder_length);
-            p = set_frame(p, PLAYLENGTH_FRAME_ID, playlength, playlength_length);
             p = set_frame(p, TITLE_FRAME_ID, gfc->tag_spec.title, title_length);
             p = set_frame(p, ARTIST_FRAME_ID, gfc->tag_spec.artist,
                     artist_length);
@@ -570,7 +529,6 @@ id3tag_write_v1(lame_global_flags *gfp)
         unsigned char *p = tag;
         int pad = (gfc->tag_spec.flags & SPACE_V1_FLAG) ? ' ' : 0;
         char year[5];
-	int year_length;
         unsigned int index;
         /* set tag identifier */
         *p++ = 'T'; *p++ = 'A'; *p++ = 'G';
@@ -578,8 +536,7 @@ id3tag_write_v1(lame_global_flags *gfp)
         p = set_text_field(p, gfc->tag_spec.title, 30, pad);
         p = set_text_field(p, gfc->tag_spec.artist, 30, pad);
         p = set_text_field(p, gfc->tag_spec.album, 30, pad);
-        year_length = sprintf(year, "%d", gfc->tag_spec.year);
-	if (year_length+1 > sizeof(year)) abort();
+        sprintf(year, "%d", gfc->tag_spec.year);
         p = set_text_field(p, gfc->tag_spec.year ? year : NULL, 4, pad);
         /* limit comment field to 28 bytes if a track is specified */
         p = set_text_field(p, gfc->tag_spec.comment, gfc->tag_spec.track
