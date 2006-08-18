@@ -49,6 +49,7 @@ private:
     DWORD   m_dwChannelMode;
     DWORD   m_dwCRC;
     DWORD   m_dwForceMono;
+    DWORD   m_dwSetDuration;
     DWORD   m_dwCopyright;
     DWORD   m_dwOriginal;
 

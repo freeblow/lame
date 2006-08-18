@@ -42,7 +42,6 @@
 #define VALUE_CRC                   "CRC"
 #define VALUE_FORCE_MONO            "Force Mono"
 #define VALUE_SET_DURATION          "Set Duration"
-#define VALUE_SAMPLE_OVERLAP        "Allow sample overlap"
 #define VALUE_PES                   "PES"
 
 #define VALUE_ENFORCE_MIN           "EnforceVBRmin"
@@ -158,8 +157,6 @@ public:
     STDMETHODIMP set_OriginalFlag(DWORD dwFlag);
     STDMETHODIMP get_CopyrightFlag(DWORD *dwFlag);
     STDMETHODIMP set_CopyrightFlag(DWORD dwFlag);
-    STDMETHODIMP get_SampleOverlap(DWORD *dwFlag);
-    STDMETHODIMP set_SampleOverlap(DWORD dwFlag);
 
     STDMETHODIMP get_ParameterBlockSize(BYTE *pcBlock, DWORD *pdwSize);
     STDMETHODIMP set_ParameterBlockSize(BYTE *pcBlock, DWORD dwSize);
@@ -213,7 +210,6 @@ private:
     CCritSec                    m_cs;
 
     DWORD                       m_setDuration;
-    DWORD                       m_allowOverlap;
 
 
 protected:

@@ -42,10 +42,31 @@
 #ifdef STDC_HEADERS
 # include <stdlib.h>
 # include <string.h>
+#else
+# ifndef HAVE_STRCHR
+#  define strchr index
+#  define strrchr rindex
+# endif
+char   *strchr(), *strrchr();
+# ifndef HAVE_MEMCPY
+#  define memcpy(d, s, n) bcopy ((s), (d), (n))
+#  define memmove(d, s, n) bcopy ((s), (d), (n))
+# endif
+#endif
+
+
+#if defined(HAVE_NCURSES_TERMCAP_H)
+# include <ncurses/termcap.h>
+#elif defined(HAVE_TERMCAP_H)
+# include <termcap.h>
+#elif defined(HAVE_TERMCAP)
+# include <curses.h>
+# if !defined(__bsdi__)
+#  include <term.h>
+# endif
 #endif
 
 #include "brhist.h"
-#include "console.h"
 
 #ifdef WITH_DMALLOC
 #include <dmalloc.h>
@@ -58,7 +79,7 @@
  * printf ( "blah\n") with printf ( "blah%s\n", Console_IO.str_clreoln );
  */
 
-extern Console_IO_t Console_IO;
+Console_IO_t Console_IO;
 
 static struct {
     int     vbr_bitrate_min_index;
@@ -83,33 +104,63 @@ calculate_index(const int *const array, const int len, const int value)
 }
 
 int
-brhist_init(const lame_global_flags * gf, const int bitrate_kbps_min, const int bitrate_kbps_max)
+brhist_init(const lame_global_flags * gf, const int bitrate_kbps_min,
+            const int bitrate_kbps_max)
 {
+#ifdef HAVE_TERMCAP
+    char    term_buff[2048]; /* see 1) */
+    const char *term_name;
+    char   *tp;
+    char    tc[10];
+    int     val;
+#endif
+
+    /* setup basics of brhist I/O channels */
+    Console_IO.disp_width = 80;
+    Console_IO.disp_height = 25;
     brhist.hist_printed_lines = 0;
+    Console_IO.Console_fp = stderr;
+    Console_IO.Error_fp = stderr;
+    Console_IO.Report_fp = stderr;
+
+    setvbuf(Console_IO.Console_fp, Console_IO.Console_buff, _IOFBF,
+            sizeof(Console_IO.Console_buff));
+/*  setvbuf ( Console_IO.Error_fp  , NULL                   , _IONBF, 0                                ); */
+
+#if defined(_WIN32)  &&  !defined(__CYGWIN__)
+    Console_IO.Console_Handle = GetStdHandle(STD_ERROR_HANDLE);
+#endif
+
+    strcpy(Console_IO.str_up, "\033[A");
 
 #ifndef RH_HIST
     /* some internal checks */
     if (bitrate_kbps_min > bitrate_kbps_max) {
-        error_printf("lame internal error: VBR min %d kbps > VBR max %d kbps.\n",
-                     bitrate_kbps_min, bitrate_kbps_max);
+        fprintf(Console_IO.Error_fp,
+                "lame internal error: VBR min %d kbps > VBR max %d kbps.\n",
+                bitrate_kbps_min, bitrate_kbps_max);
         return -1;
     }
     if (bitrate_kbps_min < 8 || bitrate_kbps_max > 320) {
-        error_printf("lame internal error: VBR min %d kbps or VBR max %d kbps out of range.\n",
-                     bitrate_kbps_min, bitrate_kbps_max);
+        fprintf(Console_IO.Error_fp,
+                "lame internal error: VBR min %d kbps or VBR max %d kbps out of range.\n",
+                bitrate_kbps_min, bitrate_kbps_max);
         return -1;
     }
 #endif
 
     /* initialize histogramming data structure */
     lame_bitrate_kbps(gf, brhist.kbps);
-    brhist.vbr_bitrate_min_index = calculate_index(brhist.kbps, BRHIST_WIDTH, bitrate_kbps_min);
-    brhist.vbr_bitrate_max_index = calculate_index(brhist.kbps, BRHIST_WIDTH, bitrate_kbps_max);
+    brhist.vbr_bitrate_min_index =
+        calculate_index(brhist.kbps, BRHIST_WIDTH, bitrate_kbps_min);
+    brhist.vbr_bitrate_max_index =
+        calculate_index(brhist.kbps, BRHIST_WIDTH, bitrate_kbps_max);
 
     if (brhist.vbr_bitrate_min_index >= BRHIST_WIDTH ||
         brhist.vbr_bitrate_max_index >= BRHIST_WIDTH) {
-        error_printf("lame internal error: VBR min %d kbps or VBR max %d kbps not allowed.\n",
-                     bitrate_kbps_min, bitrate_kbps_max);
+        fprintf(Console_IO.Error_fp,
+                "lame internal error: VBR min %d kbps or VBR max %d kbps not allowed.\n",
+                bitrate_kbps_min, bitrate_kbps_max);
         return -1;
     }
 
@@ -117,6 +168,50 @@ brhist_init(const lame_global_flags * gf, const int bitrate_kbps_min, const int 
     memset(brhist.bar_percent, '%', sizeof(brhist.bar_percent) - 1);
     memset(brhist.bar_space, '-', sizeof(brhist.bar_space) - 1);
     memset(brhist.bar_coded, '-', sizeof(brhist.bar_space) - 1);
+
+#ifdef HAVE_TERMCAP
+    /* try to catch additional information about special console sequences */
+
+    if ((term_name = getenv("TERM")) == NULL) {
+        fprintf(Console_IO.Error_fp,
+                "LAME: Can't get \"TERM\" environment string.\n");
+        return -1;
+    }
+    if (tgetent(term_buff, term_name) != 1) {
+        fprintf(Console_IO.Error_fp,
+                "LAME: Can't find termcap entry for terminal \"%s\"\n",
+                term_name);
+        return -1;
+    }
+
+    val = tgetnum("co");
+    if (val >= 40 && val <= 512)
+        Console_IO.disp_width = val;
+    val = tgetnum("li");
+    if (val >= 16 && val <= 256)
+        Console_IO.disp_height = val;
+
+    *(tp = tc) = '\0';
+    tp = tgetstr("up", &tp);
+    if (tp != NULL)
+        strcpy(Console_IO.str_up, tp);
+
+    *(tp = tc) = '\0';
+    tp = tgetstr("ce", &tp);
+    if (tp != NULL)
+        strcpy(Console_IO.str_clreoln, tp);
+
+    *(tp = tc) = '\0';
+    tp = tgetstr("md", &tp);
+    if (tp != NULL)
+        strcpy(Console_IO.str_emph, tp);
+
+    *(tp = tc) = '\0';
+    tp = tgetstr("me", &tp);
+    if (tp != NULL)
+        strcpy(Console_IO.str_norm, tp);
+
+#endif /* HAVE_TERMCAP */
 
     return 0;
 }
@@ -170,16 +265,17 @@ brhist_disp_line(int i, int br_hist_TOT, int br_hist_LR, int full, int frames)
     sprintf(brppt, " [%*i]", digits(frames), br_hist_TOT);
 
     if (Console_IO.str_clreoln[0]) /* ClearEndOfLine available */
-        console_printf("\n%3d%s %.*s%.*s%s",
-                       brhist.kbps[i], brppt,
-                       barlen_LR, brhist.bar_percent,
-                       barlen_TOT - barlen_LR, brhist.bar_asterisk, Console_IO.str_clreoln);
+        fprintf(Console_IO.Console_fp, "\n%3d%s %.*s%.*s%s",
+                brhist.kbps[i], brppt,
+                barlen_LR, brhist.bar_percent,
+                barlen_TOT - barlen_LR, brhist.bar_asterisk,
+                Console_IO.str_clreoln);
     else
-        console_printf("\n%3d%s %.*s%.*s%*s",
-                       brhist.kbps[i], brppt,
-                       barlen_LR, brhist.bar_percent,
-                       barlen_TOT - barlen_LR, brhist.bar_asterisk,
-                       Console_IO.disp_width - res - barlen_TOT, "");
+        fprintf(Console_IO.Console_fp, "\n%3d%s %.*s%.*s%*s",
+                brhist.kbps[i], brppt,
+                barlen_LR, brhist.bar_percent,
+                barlen_TOT - barlen_LR, brhist.bar_asterisk,
+                Console_IO.disp_width - res - barlen_TOT, "");
 
     brhist.hist_printed_lines++;
 }
@@ -192,7 +288,7 @@ progress_line(const lame_global_flags * gf, int full, int frames)
     char    rst[20] = "\0";
     int     barlen_TOT = 0, barlen_COD = 0, barlen_RST = 0;
     int     res = 1;
-    float   time_in_sec = 0;
+    float   df = 0;
     unsigned int hour, min, sec;
     int     fsize = lame_get_framesize(gf);
     int     srate = lame_get_out_samplerate(gf);
@@ -201,18 +297,18 @@ progress_line(const lame_global_flags * gf, int full, int frames)
         full = frames;
     }
     if (srate > 0) {
-        time_in_sec = full - frames;
-        time_in_sec *= fsize;
-        time_in_sec /= srate;
+        df = full - frames;
+        df *= fsize;
+        df /= srate;
     }
-    hour = time_in_sec / 3600;
-    time_in_sec -= hour * 3600;
-    min = time_in_sec / 60;
-    time_in_sec -= min * 60;
-    sec = time_in_sec;
+    hour = df / 3600;
+    df -= hour * 3600;
+    min = df / 60;
+    df -= min * 60;
+    sec = df;
     if (full != 0) {
         if (hour > 0) {
-            sprintf(rst, "%*d:%02u:%02u", digits(hour), hour, min, sec);
+            sprintf(rst, "%*u:%02u:%02u", digits(hour), hour, min, sec);
             res += digits(hour) + 1 + 5;
         }
         else {
@@ -231,15 +327,15 @@ progress_line(const lame_global_flags * gf, int full, int frames)
         barlen_TOT = barlen_COD = barlen_RST = 0;
     }
     if (Console_IO.str_clreoln[0]) { /* ClearEndOfLine available */
-        console_printf("\n%.*s%s%.*s%s",
-                       barlen_COD, brhist.bar_coded,
-                       rst, barlen_RST, brhist.bar_space, Console_IO.str_clreoln);
+        fprintf(Console_IO.Console_fp, "\n%.*s%s%.*s%s",
+                barlen_COD, brhist.bar_coded,
+                rst, barlen_RST, brhist.bar_space, Console_IO.str_clreoln);
     }
     else {
-        console_printf("\n%.*s%s%.*s%*s",
-                       barlen_COD, brhist.bar_coded,
-                       rst, barlen_RST, brhist.bar_space, Console_IO.disp_width - res - barlen_TOT,
-                       "");
+        fprintf(Console_IO.Console_fp, "\n%.*s%s%.*s%*s",
+                barlen_COD, brhist.bar_coded,
+                rst, barlen_RST, brhist.bar_space,
+                Console_IO.disp_width - res - barlen_TOT, "");
     }
     brhist.hist_printed_lines++;
 }
@@ -249,9 +345,15 @@ static int
 stats_value(double x)
 {
     if (x > 0.0) {
-        console_printf(" %5.1f", x);
+        fprintf(Console_IO.Console_fp, " %5.1f", x);
         return 6;
     }
+    /*
+       else {
+       fprintf( Console_IO.Console_fp, "      " );
+       return 6;
+       }
+     */
     return 0;
 }
 
@@ -259,9 +361,15 @@ static int
 stats_head(double x, const char *txt)
 {
     if (x > 0.0) {
-        console_printf(txt);
+        fprintf(Console_IO.Console_fp, txt);
         return 6;
     }
+    /*
+       else {
+       fprintf( Console_IO.Console_fp, "      " );
+       return 6;
+       }
+     */
     return 0;
 }
 
@@ -270,45 +378,45 @@ static void
 stats_line(double *stat)
 {
     int     n = 1;
-    console_printf("\n   kbps     ");
+    fprintf(Console_IO.Console_fp, "\n   kbps     ");
     n += 12;
     n += stats_head(stat[1], "  mono");
     n += stats_head(stat[2], "   IS ");
     n += stats_head(stat[3], "   LR ");
     n += stats_head(stat[4], "   MS ");
-    console_printf(" %%    ");
+    fprintf(Console_IO.Console_fp, " %%    ");
     n += 6;
     n += stats_head(stat[5], " long ");
     n += stats_head(stat[6], "switch");
     n += stats_head(stat[7], " short");
     n += stats_head(stat[8], " mixed");
-    n += console_printf(" %%");
+    n += fprintf(Console_IO.Console_fp, " %%");
     if (Console_IO.str_clreoln[0]) { /* ClearEndOfLine available */
-        console_printf("%s", Console_IO.str_clreoln);
+        fprintf(Console_IO.Console_fp, "%s", Console_IO.str_clreoln);
     }
     else {
-        console_printf("%*s", Console_IO.disp_width - n, "");
+        fprintf(Console_IO.Console_fp, "%*s", Console_IO.disp_width - n, "");
     }
     brhist.hist_printed_lines++;
 
     n = 1;
-    console_printf("\n  %5.1f     ", stat[0]);
+    fprintf(Console_IO.Console_fp, "\n  %5.1f     ", stat[0]);
     n += 12;
     n += stats_value(stat[1]);
     n += stats_value(stat[2]);
     n += stats_value(stat[3]);
     n += stats_value(stat[4]);
-    console_printf("      ");
+    fprintf(Console_IO.Console_fp, "      ");
     n += 6;
     n += stats_value(stat[5]);
     n += stats_value(stat[6]);
     n += stats_value(stat[7]);
     n += stats_value(stat[8]);
     if (Console_IO.str_clreoln[0]) { /* ClearEndOfLine available */
-        console_printf("%s", Console_IO.str_clreoln);
+        fprintf(Console_IO.Console_fp, "%s", Console_IO.str_clreoln);
     }
     else {
-        console_printf("%*s", Console_IO.disp_width - n, "");
+        fprintf(Console_IO.Console_fp, "%*s", Console_IO.disp_width - n, "");
     }
     brhist.hist_printed_lines++;
 }
@@ -356,8 +464,11 @@ brhist_disp(const lame_global_flags * gf)
 #ifdef RH_HIST
         show = show && (lines > 1);
 #endif
-        if (show || (i >= brhist.vbr_bitrate_min_index && i <= brhist.vbr_bitrate_max_index))
-            brhist_disp_line(i, br_hist[i], br_sm_hist[i][LR], most_often, frames);
+        if (show
+            || (i >= brhist.vbr_bitrate_min_index
+                && i <= brhist.vbr_bitrate_max_index))
+            brhist_disp_line(i, br_hist[i], br_sm_hist[i][LR], most_often,
+                             frames);
     }
 #ifdef RH_HIST
     for (i = 0; i < 4; i++) {
@@ -381,13 +492,27 @@ brhist_disp(const lame_global_flags * gf)
     progress_line(gf, lame_get_totalframes(gf), frames);
     stats_line(stat);
 #endif
+    fputs("\r", Console_IO.Console_fp);
+    fflush(Console_IO.Console_fp); /* fflush is ALSO needed for Windows! */
 }
 
 void
 brhist_jump_back(void)
 {
-    console_up(brhist.hist_printed_lines);
-    brhist.hist_printed_lines = 0;
+#if defined(_WIN32)  &&  !defined(__CYGWIN__)
+    if (GetFileType(Console_IO.Console_Handle) != FILE_TYPE_PIPE) {
+        COORD   Pos;
+        CONSOLE_SCREEN_BUFFER_INFO CSBI;
+
+        GetConsoleScreenBufferInfo(Console_IO.Console_Handle, &CSBI);
+        Pos.Y = CSBI.dwCursorPosition.Y - brhist.hist_printed_lines;
+        Pos.X = 0;
+        SetConsoleCursorPosition(Console_IO.Console_Handle, Pos);
+    }
+#else
+    while (brhist.hist_printed_lines-- > 0)
+        fputs(Console_IO.str_up, Console_IO.Console_fp);
+#endif
 }
 
 
@@ -420,48 +545,58 @@ brhist_disp_total(const lame_global_flags * gf)
     if (0 == br_frames)
         return;
 
-    console_printf("\naverage: %5.1f kbps", sum / br_frames);
+    fprintf(Console_IO.Console_fp, "\naverage: %5.1f kbps", sum / br_frames);
 
     /* I'm very unhappy because this is only printed out in VBR modes */
 
     if (st_frames > 0) {
         if (st_mode[LR] > 0)
-            console_printf("   LR: %d (%#5.4g%%)", st_mode[LR], 100. * st_mode[LR] / st_frames);
+            fprintf(Console_IO.Console_fp, "   LR: %d (%#5.4g%%)", st_mode[LR],
+                    100. * st_mode[LR] / st_frames);
         else
-            console_printf("                 ");
+            fprintf(Console_IO.Console_fp, "                 ");
         if (st_mode[MS] > 0)
-            console_printf("   MS: %d (%#5.4g%%)", st_mode[MS], 100. * st_mode[MS] / st_frames);
+            fprintf(Console_IO.Console_fp, "   MS: %d (%#5.4g%%)", st_mode[MS],
+                    100. * st_mode[MS] / st_frames);
     }
-    console_printf("\n");
+    fprintf(Console_IO.Console_fp, "\n");
 
     if (bl_type[5] > 0) {
         extern int silent;
         if (silent <= -5 && silent > -10) {
-            console_printf("block type");
-            console_printf(" long: %#4.3f", 100. * bl_type[0] / bl_type[5]);
-            console_printf(" start: %#4.3f", 100. * bl_type[1] / bl_type[5]);
-            console_printf(" short: %#4.3f", 100. * bl_type[2] / bl_type[5]);
-            console_printf(" stop: %#4.3f", 100. * bl_type[3] / bl_type[5]);
-            console_printf(" mixed: %#4.3f", 100. * bl_type[4] / bl_type[5]);
-            console_printf(" (%%)\n");
+            fprintf(Console_IO.Console_fp, "block type");
+            fprintf(Console_IO.Console_fp, " long: %#4.3f",
+                    100. * bl_type[0] / bl_type[5]);
+            fprintf(Console_IO.Console_fp, " start: %#4.3f",
+                    100. * bl_type[1] / bl_type[5]);
+            fprintf(Console_IO.Console_fp, " short: %#4.3f",
+                    100. * bl_type[2] / bl_type[5]);
+            fprintf(Console_IO.Console_fp, " stop: %#4.3f",
+                    100. * bl_type[3] / bl_type[5]);
+            fprintf(Console_IO.Console_fp, " mixed: %#4.3f",
+                    100. * bl_type[4] / bl_type[5]);
+            fprintf(Console_IO.Console_fp, " (%%)\n");
         }
         else if (silent <= -10) {
-            console_printf("block types   granules   percent\n");
-            console_printf("      long: % 10d  % 8.3f%%\n",
-                           bl_type[0], 100. * bl_type[0] / bl_type[5]);
-            console_printf("     start: % 10d  % 8.3f%%\n",
-                           bl_type[1], 100. * bl_type[1] / bl_type[5]);
-            console_printf("     short: % 10d  % 8.3f%%\n",
-                           bl_type[2], 100. * bl_type[2] / bl_type[5]);
-            console_printf("      stop: % 10d  % 8.3f%%\n",
-                           bl_type[3], 100. * bl_type[3] / bl_type[5]);
-            console_printf("     mixed: % 10d  % 8.3f%%\n",
-                           bl_type[4], 100. * bl_type[4] / bl_type[5]);
+            fprintf(Console_IO.Console_fp,
+                    "block types   granules   percent\n");
+            fprintf(Console_IO.Console_fp, "      long: % 10d  % 8.3f%%\n",
+                    bl_type[0], 100. * bl_type[0] / bl_type[5]);
+            fprintf(Console_IO.Console_fp, "     start: % 10d  % 8.3f%%\n",
+                    bl_type[1], 100. * bl_type[1] / bl_type[5]);
+            fprintf(Console_IO.Console_fp, "     short: % 10d  % 8.3f%%\n",
+                    bl_type[2], 100. * bl_type[2] / bl_type[5]);
+            fprintf(Console_IO.Console_fp, "      stop: % 10d  % 8.3f%%\n",
+                    bl_type[3], 100. * bl_type[3] / bl_type[5]);
+            fprintf(Console_IO.Console_fp, "     mixed: % 10d  % 8.3f%%\n",
+                    bl_type[4], 100. * bl_type[4] / bl_type[5]);
         }
     }
 #else
     (void) gf;
 #endif
+
+    fflush(Console_IO.Console_fp);
 }
 
 /*

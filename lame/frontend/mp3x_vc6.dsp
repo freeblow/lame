@@ -121,10 +121,6 @@ SOURCE=..\frontend\parse.c
 # End Source File
 # Begin Source File
 
-SOURCE=..\frontend\console.c
-# End Source File
-# Begin Source File
-
 SOURCE=..\frontend\portableio.c
 # End Source File
 # Begin Source File
@@ -158,10 +154,6 @@ SOURCE=..\frontend\lametime.h
 # Begin Source File
 
 SOURCE=..\frontend\parse.h
-# End Source File
-# Begin Source File
-
-SOURCE=..\frontend\console.h
 # End Source File
 # Begin Source File
 

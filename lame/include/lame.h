@@ -45,7 +45,7 @@ typedef enum vbr_mode_e {
   vbr_abr,
   vbr_mtrh,
   vbr_max_indicator,    /* Don't use this! It's used for sanity checks.       */
-  vbr_default=vbr_mtrh    /* change this to change the default VBR mode of LAME */
+  vbr_default=vbr_rh    /* change this to change the default VBR mode of LAME */
 } vbr_mode;
 
 
@@ -576,6 +576,12 @@ int CDECL lame_get_AudiophileGain(const lame_global_flags *);
 
 /* the peak sample */
 float CDECL lame_get_PeakSample(const lame_global_flags *);
+
+/* is decoding on the fly performed */
+int CDECL lame_get_decode_on_the_fly(const lame_global_flags *);
+
+/* is ReplayGain analysis performed */
+int CDECL lame_get_findReplayGain(const lame_global_flags *);
 
 /* Gain change required for preventing clipping. The value is correct only if 
    peak sample searching was enabled. If negative then the waveform 

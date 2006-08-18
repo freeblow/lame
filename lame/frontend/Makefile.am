@@ -9,6 +9,8 @@ brhist_sources = brhist.c brhist.h
 
 EXTRA_DIST = \
 	$(brhist_sources) \
+	console.c \
+	console.h \
 	lame_vc6.dsp \
 	lame_vc7.vcproj \
 	mp3x_vc6.dsp \
@@ -18,16 +20,13 @@ EXTRA_DIST = \
 DEFS = @DEFS@ @CONFIG_DEFS@
 
 common_sources = \
-	console.c \
 	get_audio.c \
 	lametime.c \
 	parse.c \
 	portableio.c \
 	timestatus.c
 
-noinst_HEADERS = \
-	console.h \
-	get_audio.h \
+noinst_HEADERS = get_audio.h \
 	gtkanal.h \
 	gpkplotting.h \
 	lametime.h \
@@ -52,8 +51,8 @@ mp3rtp_SOURCES = mp3rtp.c rtp.c rtp.h $(common_sources)
 mp3x_SOURCES = mp3x.c gtkanal.c gpkplotting.c $(common_sources)
 endif
 
-CFLAGS = @CFLAGS@ @GTK_CFLAGS@ @FRONTEND_CFLAGS@ @SNDFILE_CFLAGS@
-LDFLAGS = @LDFLAGS@ @FRONTEND_LDFLAGS@ @SNDFILE_LIBS@ -static
+CFLAGS = @CFLAGS@ @GTK_CFLAGS@ @FRONTEND_CFLAGS@
+LDFLAGS = @LDFLAGS@ @FRONTEND_LDFLAGS@ -static
 
 INCLUDES = -I$(top_srcdir)/libmp3lame -I$(top_srcdir)/include -I$(top_builddir)
 
