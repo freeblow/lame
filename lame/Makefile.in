@@ -41,7 +41,8 @@ DIST_COMMON = README $(am__configure_deps) $(srcdir)/Makefile.am \
 	$(srcdir)/Makefile.in $(srcdir)/config.h.in \
 	$(srcdir)/lame.spec.in $(top_srcdir)/Makefile.am.global \
 	$(top_srcdir)/configure COPYING ChangeLog INSTALL TODO \
-	config.guess config.sub depcomp install-sh ltmain.sh missing
+	config.guess config.sub depcomp install-sh ltconfig ltmain.sh \
+	missing mkinstalldirs
 subdir = .
 ACLOCAL_M4 = $(top_srcdir)/aclocal.m4
 am__aclocal_m4_deps = $(top_srcdir)/acinclude.m4 \
@@ -50,7 +51,7 @@ am__configure_deps = $(am__aclocal_m4_deps) $(CONFIGURE_DEPENDENCIES) \
 	$(ACLOCAL_M4)
 am__CONFIG_DISTCLEAN_FILES = config.status config.cache config.log \
  configure.lineno configure.status.lineno
-mkinstalldirs = $(install_sh) -d
+mkinstalldirs = $(SHELL) $(top_srcdir)/mkinstalldirs
 CONFIG_HEADER = config.h
 CONFIG_CLEAN_FILES = lame.spec
 SOURCES =
@@ -147,13 +148,10 @@ PACKAGE_STRING = @PACKAGE_STRING@
 PACKAGE_TARNAME = @PACKAGE_TARNAME@
 PACKAGE_VERSION = @PACKAGE_VERSION@
 PATH_SEPARATOR = @PATH_SEPARATOR@
-PKG_CONFIG = @PKG_CONFIG@
 RANLIB = @RANLIB@
 RM_F = @RM_F@
 SET_MAKE = @SET_MAKE@
 SHELL = @SHELL@
-SNDFILE_CFLAGS = @SNDFILE_CFLAGS@
-SNDFILE_LIBS = @SNDFILE_LIBS@
 STRIP = @STRIP@
 U = @U@
 VERSION = @VERSION@
@@ -168,7 +166,6 @@ ac_ct_CXX = @ac_ct_CXX@
 ac_ct_F77 = @ac_ct_F77@
 ac_ct_RANLIB = @ac_ct_RANLIB@
 ac_ct_STRIP = @ac_ct_STRIP@
-ac_pt_PKG_CONFIG = @ac_pt_PKG_CONFIG@
 am__fastdepCC_FALSE = @am__fastdepCC_FALSE@
 am__fastdepCC_TRUE = @am__fastdepCC_TRUE@
 am__fastdepCXX_FALSE = @am__fastdepCXX_FALSE@
@@ -206,7 +203,7 @@ sbindir = @sbindir@
 sharedstatedir = @sharedstatedir@
 sysconfdir = @sysconfdir@
 target_alias = @target_alias@
-AUTOMAKE_OPTIONS = 1.9 foreign $(top_srcdir)/ansi2knr
+AUTOMAKE_OPTIONS = 1.5 foreign $(top_srcdir)/ansi2knr
 SUBDIRS = mpglib libmp3lame frontend Dll debian doc include misc dshow ACM mac
 CLEANFILES = testcase.new.mp3
 EXTRA_DIST = \

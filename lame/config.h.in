@@ -188,8 +188,8 @@
 /* Define to 1 if you have the <unistd.h> header file. */
 #undef HAVE_UNISTD_H
 
-/* Define to 1 if you have the <xmmintrin.h> header file. */
-#undef HAVE_XMMINTRIN_H
+/* winsock */
+#undef HAVE_WINSOCKET
 
 /* requested by Frank, seems to be temporary needed for a smooth transition */
 #undef LAME_LIBRARY_BUILD
@@ -339,3 +339,10 @@
 
 /* Define to `unsigned' if <sys/types.h> does not define. */
 #undef size_t
+
+/* Number of bits in a file offset, on hosts where this is settable. */
+#undef _FILE_OFFSET_BITS
+
+/* Define for large files, on AIX-style hosts. */
+#undef _LARGE_FILES
+

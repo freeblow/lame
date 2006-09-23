@@ -1,7 +1,7 @@
 /*
- *      Machine dependent defines/includes for LAME.
+ *	Machine dependent defines/includes for LAME.
  *
- *      Copyright (c) 1999 A.L. Faber
+ *	Copyright (c) 1999 A.L. Faber
  *
  * This library is free software; you can redistribute it and/or
  * modify it under the terms of the GNU Library General Public
@@ -10,7 +10,7 @@
  *
  * This library is distributed in the hope that it will be useful,
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.	 See the GNU
  * Library General Public License for more details.
  *
  * You should have received a copy of the GNU Library General Public
@@ -22,14 +22,7 @@
 #ifndef LAME_MACHINE_H
 #define LAME_MACHINE_H
 
-#include "version.h"
-
-#if (LAME_ALPHA_VERSION != 0)
-#undef NDEBUG
-#endif
-
 #include <stdio.h>
-#include <assert.h>
 
 #ifdef STDC_HEADERS
 # include <stdlib.h>
@@ -39,7 +32,7 @@
 #  define strchr index
 #  define strrchr rindex
 # endif
-char   *strchr(), *strrchr();
+char *strchr (), *strrchr ();
 # ifndef HAVE_MEMCPY
 #  define memcpy(d, s, n) bcopy ((s), (d), (n))
 #  define memmove(d, s, n) bcopy ((s), (d), (n))
@@ -51,7 +44,6 @@ char   *strchr(), *strrchr();
 #else
 # include <math.h>
 #endif
-#include <limits.h>
 
 #include <ctype.h>
 
@@ -70,26 +62,14 @@ char   *strchr(), *strrchr();
 # include <sys/stat.h>
 #endif
 
-#ifdef HAVE_INTTYPES_H
-# include <inttypes.h>
-#else
-# ifdef HAVE_STDINT_H
-#  include <stdint.h>
-# endif
-#endif
-
-#ifdef WITH_DMALLOC
-#include <dmalloc.h>
-#endif
-
-/*
+/* 
  * 3 different types of pow() functions:
  *   - table lookup
  *   - pow()
  *   - exp()   on some machines this is claimed to be faster than pow()
  */
 
-#define POW20(x) (assert(0 <= (x+Q_MAX2) && x < Q_MAX), pow20[x+Q_MAX2])
+#define POW20(x) (assert(-Q_MAX2 <= x && x < Q_MAX), pow20[x+Q_MAX2])
 /*#define POW20(x)  pow(2.0,((double)(x)-210)*.25) */
 /*#define POW20(x)  exp( ((double)(x)-210)*(.25*LOG2) ) */
 
@@ -132,7 +112,7 @@ char   *strchr(), *strrchr();
 # define FLOAT_MAX FLT_MAX
 #else
 # ifndef FLOAT
-typedef float FLOAT;
+typedef float   FLOAT;
 #  ifdef FLT_MAX
 #   define FLOAT_MAX FLT_MAX
 #  else
@@ -141,8 +121,8 @@ typedef float FLOAT;
 # endif
 #endif
 
-#ifndef FLOAT8          /* NOTE: RH: 7/00:  if FLOAT8=float, it breaks resampling and VBR code */
-typedef double FLOAT8;
+#ifndef FLOAT8  /* NOTE: RH: 7/00:  if FLOAT8=float, it breaks resampling and VBR code */
+typedef double  FLOAT8;
 # ifdef DBL_MAX
 #  define FLOAT8_MAX DBL_MAX
 # else
@@ -157,11 +137,10 @@ typedef double FLOAT8;
 #endif
 
 /* sample_t must be floating point, at least 32 bits */
-typedef FLOAT sample_t;
-typedef sample_t stereo_t[2];
-
-
+typedef FLOAT     sample_t;
+typedef sample_t  stereo_t [2];
 
 #endif
 
 /* end of machine.h */
+

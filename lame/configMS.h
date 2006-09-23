@@ -118,7 +118,3 @@ void acm_Free( void * mem);
         #endif
     #endif
 #endif
-
-#ifdef _M_X64
-        #define HAVE_XMMINTRIN_H
-#endif

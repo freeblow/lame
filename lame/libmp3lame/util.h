@@ -1,7 +1,7 @@
 /*
- *      lame utility library include file
+ *	lame utility library include file
  *
- *      Copyright (c) 1999 Albert L Faber
+ *	Copyright (c) 1999 Albert L Faber
  *
  * This library is free software; you can redistribute it and/or
  * modify it under the terms of the GNU Library General Public
@@ -10,7 +10,7 @@
  *
  * This library is distributed in the hope that it will be useful,
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.	 See the GNU
  * Library General Public License for more details.
  *
  * You should have received a copy of the GNU Library General Public
@@ -22,8 +22,26 @@
 #ifndef LAME_UTIL_H
 #define LAME_UTIL_H
 
-#include "l3side.h"
+/***********************************************************************
+*
+*  Global Include Files
+*
+***********************************************************************/
+#include "machine.h"
+#include "encoder.h"
+#include "lame.h"
+#include "lame_global_flags.h"
+#include "lame-analysis.h"
 #include "id3tag.h"
+#include "gain_analysis.h"
+
+#if HAVE_INTTYPES_H
+# include <inttypes.h>
+#else
+# if HAVE_STDINT_H
+#  include <stdint.h>
+# endif
+#endif
 
 #ifdef __cplusplus
 extern  "C" {
@@ -102,16 +120,7 @@ extern  "C" {
 #endif
 
 
-    struct replaygain_data;
-#ifndef replaygain_data_defined
-#define replaygain_data_defined
-    typedef struct replaygain_data replaygain_t;
-#endif
-    struct plotting_data;
-#ifndef plotting_data_defined
-#define plotting_data_defined
-    typedef struct plotting_data plotting_data;
-#endif
+
 
 /***********************************************************************
 *
@@ -119,19 +128,6 @@ extern  "C" {
 *
 ***********************************************************************/
 
-    typedef struct {
-        void   *aligned;     /* pointer to ie. 128 bit aligned memory */
-        void   *pointer;     /* to use with malloc/free */
-    } aligned_pointer_t;
-
-    void    malloc_aligned(aligned_pointer_t * ptr, unsigned int size, unsigned int bytes);
-    void    free_aligned(aligned_pointer_t * ptr);
-
-
-
-    typedef void (*iteration_loop_t) (lame_global_flags const * gfp,
-                                      FLOAT const pe[2][2], FLOAT const ms_ratio[2],
-                                      III_psy_ratio const ratio[2][2]);
 
 
     /* "bit_stream.h" Type Definitions */
@@ -146,6 +142,7 @@ extern  "C" {
         /* format of file in rd mode (BINARY/ASCII) */
     } Bit_stream_struc;
 
+#include "l3side.h"
 
 
     /* variables used for --nspsytune */
@@ -193,8 +190,7 @@ extern  "C" {
         FLOAT   s[SBMAX_s];  /* ATH for sfbs in short blocks */
         FLOAT   psfb21[PSFB21]; /* ATH for partitionned sfb21 in long blocks */
         FLOAT   psfb12[PSFB12]; /* ATH for partitionned sfb12 in short blocks */
-        FLOAT   cb_l[CBANDS]; /* ATH for long block convolution bands */
-        FLOAT   cb_s[CBANDS]; /* ATH for short block convolution bands */
+        FLOAT   cb[CBANDS];  /* ATH for convolution bands */
         FLOAT   eql_w[BLKSIZE / 2]; /* equal loudness weights (based on ATH) */
     } ATH_t;
 
@@ -204,11 +200,15 @@ extern  "C" {
     typedef struct {
         FLOAT   mask_adjust; /* the dbQ stuff */
         FLOAT   mask_adjust_short; /* the dbQ stuff */
+        int     tonalityPatch; /* temporaly needed by VBR */
         FLOAT   cwlimit;
+        FLOAT   prvTonRed[CBANDS];
     } PSY_t;
 
 
 #define MAX_CHANNELS  2
+
+
 
 
 
@@ -219,10 +219,10 @@ extern  "C" {
    * modified by the calling program                                  *
    ********************************************************************/
 
-        /*
+        /*  
          * Some remarks to the Class_ID field:
          * The Class ID is an Identifier for a pointer to this struct.
-         * It is very unlikely that a pointer to lame_global_flags has the same 32 bits
+         * It is very unlikely that a pointer to lame_global_flags has the same 32 bits 
          * in it's structure (large and other special properties, for instance prime).
          *
          * To test that the structure is right and initialized, use:
@@ -271,9 +271,9 @@ extern  "C" {
 
         int     filter_type; /* 0=polyphase filter, 1= FIR filter 2=MDCT filter(bad) */
         int     quantization; /* 0 = ISO formual,  1=best amplitude */
-        int     noise_shaping; /* 0 = none
+        int     noise_shaping; /* 0 = none 
                                   1 = ISO AAC model
-                                  2 = allow scalefac_select=1
+                                  2 = allow scalefac_select=1  
                                 */
 
         int     noise_shaping_amp; /*  0 = ISO model: amplify all distorted bands
@@ -291,9 +291,9 @@ extern  "C" {
         int     psymodel;    /* 1 = gpsycho. 0 = none */
         int     noise_shaping_stop; /* 0 = stop at over=0, all scalefacs amplified or
                                        a scalefac has reached max value
-                                       1 = stop when all scalefacs amplified or
+                                       1 = stop when all scalefacs amplified or        
                                        a scalefac has reached max value
-                                       2 = stop when all scalefacs amplified
+                                       2 = stop when all scalefacs amplified 
                                      */
 
         int     subblock_gain; /*  0 = no, 1 = yes */
@@ -346,7 +346,7 @@ extern  "C" {
 
         /* variables for bitstream.c */
         /* mpeg1: buffer=511 bytes  smallest frame: 96-38(sideinfo)=58
-         * max number of frames in reservoir:  8
+         * max number of frames in reservoir:  8 
          * mpeg2: buffer=255 bytes.  smallest frame: 24-23bytes=1
          * with VBR, if you are encoding all silence, it is possible to
          * have 8kbs/24khz frames with 1byte of data each, which means we need
@@ -375,8 +375,7 @@ extern  "C" {
 /* to be remembered for the unpredictability measure.  For "r" and        */
 /* "phi_sav", the first index from the left is the channel select and     */
 /* the second index is the "age" of the data.                             */
-        FLOAT   minval_l[CBANDS];
-        FLOAT   minval_s[CBANDS];
+        FLOAT   minval[CBANDS];
         FLOAT   nb_1[4][CBANDS], nb_2[4][CBANDS];
         FLOAT   nb_s1[4][CBANDS], nb_s2[4][CBANDS];
         FLOAT  *s3_ss;
@@ -452,11 +451,11 @@ extern  "C" {
         int     nogap_total;
         int     nogap_current;
 
-
+        
         /* ReplayGain */
-        unsigned int decode_on_the_fly:1;
-        unsigned int findReplayGain:1;
-        unsigned int findPeakSample:1;
+        int     decode_on_the_fly : 1;
+        int     findReplayGain : 1;
+        int     findPeakSample : 1;
         sample_t PeakSample;
         int     RadioGain;
         int     AudiophileGain;
@@ -471,20 +470,20 @@ extern  "C" {
         int     bitrate_stereoMode_Hist[16][4 + 1];
         int     bitrate_blockType_Hist[16][4 + 1 + 1]; /*norm/start/short/stop/mixed(short)/sum */
 #endif
+#ifdef HAVE_GTK
         /* used by the frame analyzer */
         plotting_data *pinfo;
+        FLOAT   energy_save[4][HBLKSIZE];
+        FLOAT   ers_save[4];
+#endif
 
         int     in_buffer_nsamples;
         sample_t *in_buffer_0;
         sample_t *in_buffer_1;
-
-        iteration_loop_t iteration_loop;
     };
 
-#ifndef lame_internal_flags_defined
-#define lame_internal_flags_defined
-    typedef struct lame_internal_flags lame_internal_flags;
-#endif
+
+
 
 
 /***********************************************************************
@@ -498,7 +497,7 @@ extern  "C" {
     extern int map2MP3Frequency(int freq);
     extern int SmpFrqIndex(int, int *const);
     extern int nearestBitrateFullIndex(const int brate);
-    extern FLOAT ATHformula(FLOAT freq, lame_global_flags const *gfp);
+    extern FLOAT ATHformula(FLOAT freq, lame_global_flags * gfp);
     extern FLOAT freq2bark(FLOAT freq);
     extern FLOAT freq2cbw(FLOAT freq);
     void    disable_FPE(void);
@@ -508,19 +507,19 @@ extern  "C" {
     extern ieee754_float32_t fast_log2(ieee754_float32_t x);
 
 
-    void    fill_buffer(lame_global_flags const *gfp,
+    void    fill_buffer(lame_global_flags * gfp,
                         sample_t * mfbuf[2],
-                        sample_t const *in_buffer[2], int nsamples, int *n_in, int *n_out);
+                        sample_t * in_buffer[2], int nsamples, int *n_in, int *n_out);
 
-    int     fill_buffer_resample(lame_global_flags const *gfp,
+    int     fill_buffer_resample(lame_global_flags * gfp,
                                  sample_t * outbuf,
                                  int desired_len,
-                                 sample_t const *inbuf, int len, int *num_used, int channels);
+                                 sample_t * inbuf, int len, int *num_used, int channels);
 
-/* same as lame_decode1 (look in lame.h), but returns
+/* same as lame_decode1 (look in lame.h), but returns 
    unclipped raw floating-point samples. It is declared
-   here, not in lame.h, because it returns LAME's
-   internal type sample_t. No more than 1152 samples
+   here, not in lame.h, because it returns LAME's 
+   internal type sample_t. No more than 1152 samples 
    per channel are allowed. */
     int     lame_decode1_unclipped(unsigned char *mp3buf,
                                    int len, sample_t pcm_l[], sample_t pcm_r[]);
@@ -542,8 +541,8 @@ extern  "C" {
     extern void lame_debugf(const lame_internal_flags * gfc, const char *, ...);
     extern void lame_msgf(const lame_internal_flags * gfc, const char *, ...);
 #define DEBUGF  lame_debugf
-#define ERRORF  lame_errorf
-#define MSGF    lame_msgf
+#define ERRORF	lame_errorf
+#define MSGF	lame_msgf
 
 
 #ifdef __cplusplus

@@ -17,8 +17,8 @@ dnl FRONTEND_LDFLAGS
 dnl FRONTEND_CFLAGS
 dnl FRONTEND_LDADD
 
-AC_PREREQ(2.59)
-AC_INIT([lame],[3.97],[lame-dev@lists.sf.net])
+AC_PREREQ(2.53)
+AC_INIT(lame,3.97,lame-dev@lists.sf.net)
 AC_CONFIG_SRCDIR([libmp3lame/lame.c])
 
 dnl check system
@@ -26,7 +26,7 @@ AC_CANONICAL_HOST
 
 dnl automake
 AM_INIT_AUTOMAKE
-AC_CONFIG_HEADERS([config.h])
+AM_CONFIG_HEADER(config.h)
 AM_MAINTAINER_MODE
 AM_MAKE_INCLUDE
 
@@ -63,8 +63,7 @@ if test "${ac_cv_cygwin}" = "yes"; then
 fi
 
 dnl check programs
-AC_PROG_CC()
-
+AM_PROG_CC_STDC
 
 dnl more automake stuff
 AM_C_PROTOTYPES
@@ -85,7 +84,6 @@ AC_CHECK_HEADERS( \
 		 sys/soundcard.h \
 		 sys/time.h \
 		 unistd.h \
-		 xmmintrin.h \
 		 linux/soundcard.h)
 
 dnl Checks for typedefs, structures, and compiler characteristics.
@@ -305,23 +303,30 @@ if test "X${ac_cv_func_strtol}" != "Xyes"; then
 	AC_MSG_ERROR([function strtol is mandatory])
 fi
 
-dnl Check if we are on a mingw system, which needs libwsock32
-SOCKETFUNCTION=unknown
-AC_CHECK_FUNCS(socket)
-if test $ac_cv_func_socket = no; then
-	# maybe it is in libsocket
-	AC_CHECK_LIB(socket, socket, [AC_DEFINE(HAVE_SOCKET)
-	LIBS="$LIBS -lsocket"])
-	if test "X${ac_cv_lib_socket_socket}" != "Xyes"; then
-		SOCKETFUNCTION=NO
-	else
-		case ${host_os} in
-		*solaris*)
-			LIBS="$LIBS -lnsl"
-			;;
-		esac
+dnl Check if we have winsock, if so, we are on a mingw system
+dnl and need libwsock32
+SOCKETFUNCTION=YES
+AC_CHECK_HEADER(winsock2.h, [AC_DEFINE([HAVE_WINSOCKET], [], [winsock])
+		LIBS="$LIBS -lwsock32"])  
+if test $ac_cv_header_winsock2_h = no; then
+	AC_CHECK_FUNCS(socket)
+	if test $ac_cv_func_socket = no; then
+		# maybe it is in libsocket
+		AC_CHECK_LIB(socket, socket, [AC_DEFINE(HAVE_SOCKET)
+			LIBS="$LIBS -lsocket"])
+
+		if test "X${ac_cv_lib_socket_socket}" != "Xyes"; then
+			SOCKETFUNCTION=NO
+		else
+			case ${host_os} in
+			*solaris*)
+				LIBS="$LIBS -lnsl"
+				;;
+			esac
+		fi
 	fi
 fi
+
 
 dnl Initialize configuration variables for the Makefile
 CFLAGS=${CFLAGS}
@@ -354,8 +359,7 @@ dnl Compaq fast math library.
 AC_CHECK_LIB(cpml, cos, USE_LIBM="-lcpml")
 CONFIG_MATH_LIB="${USE_LIBM}"
 
-PKG_CHECK_MODULES(SNDFILE, sndfile >= 1.0.2, HAVE_SNDFILE="yes", HAVE_SNDFILE="no")
-AC_DEFINE_UNQUOTED([LIBSNDFILE],${ac_cv_sndfile}, [Set to 1 if you have libsndfile.])
+AC_CHECK_LIB(sndfile, sf_open_read, HAVE_SNDFILE="yes")
 
 
 dnl configure use of features

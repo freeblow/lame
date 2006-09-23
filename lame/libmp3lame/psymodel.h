@@ -22,23 +22,28 @@
 #ifndef LAME_PSYMODEL_H
 #define LAME_PSYMODEL_H
 
+#include "l3side.h"
 
-int     L3psycho_anal(lame_global_flags const *gfc,
-                      const sample_t * buffer[2], int gr,
-                      FLOAT * ms_ratio,
-                      FLOAT * ms_ratio_next,
-                      III_psy_ratio ratio[2][2],
-                      III_psy_ratio MS_ratio[2][2],
-                      FLOAT pe[2], FLOAT pe_MS[2], FLOAT ener[2], int blocktype_d[2]);
+int L3psycho_anal( lame_global_flags *gfc,
+                    const sample_t *buffer[2], int gr, 
+		    FLOAT *ms_ratio, 
+		    FLOAT *ms_ratio_next, 
+		    III_psy_ratio ratio[2][2],
+		    III_psy_ratio MS_ratio[2][2],
+		   FLOAT pe[2], FLOAT pe_MS[2], FLOAT ener[2],
+                    int blocktype_d[2]); 
 
-int     L3psycho_anal_ns(lame_global_flags const *gfc,
-                         const sample_t * buffer[2], int gr,
-                         III_psy_ratio ratio[2][2],
-                         III_psy_ratio MS_ratio[2][2],
-                         FLOAT pe[2], FLOAT pe_MS[2], FLOAT ener[2], int blocktype_d[2]);
+int L3psycho_anal_ns( lame_global_flags *gfc,
+		      const sample_t *buffer[2], int gr, 
+		      FLOAT *ms_ratio, 
+		      FLOAT *ms_ratio_next, 
+		      III_psy_ratio ratio[2][2],
+		      III_psy_ratio MS_ratio[2][2],
+		      FLOAT pe[2], FLOAT pe_MS[2], FLOAT ener[2],
+		      int blocktype_d[2]); 
 
 
-int     psymodel_init(lame_global_flags * gfp);
+int psymodel_init(lame_global_flags *gfp);
 
 
 #define rpelev 2
@@ -79,3 +84,4 @@ int     psymodel_init(lame_global_flags * gfp);
 #define NSATTACKTHRE_S 25
 
 #endif /* LAME_PSYMODEL_H */
+

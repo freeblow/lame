@@ -48,8 +48,6 @@ private:
     DWORD   m_dwChannelMode;
     DWORD   m_dwForceMS;
     DWORD   m_dwModeFixed;
-    DWORD   m_dwOverlap;
-    DWORD   m_dwSetStop;
 
     IAudioEncoderProperties *m_pAEProps;
 };

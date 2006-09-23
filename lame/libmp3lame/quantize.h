@@ -10,7 +10,7 @@
  *
  * This library is distributed in the hope that it will be useful,
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.	 See the GNU
  * Library General Public License for more details.
  *
  * You should have received a copy of the GNU Library General Public
@@ -22,24 +22,22 @@
 #ifndef LAME_QUANTIZE_H
 #define LAME_QUANTIZE_H
 
-void    trancate_smallspectrums(lame_internal_flags const * gfc, gr_info * const gi,
-                                const FLOAT * const l3_xmin, FLOAT * const work);
+#include "util.h"
 
-void    CBR_iteration_loop(lame_global_flags const *gfp,
-                           FLOAT const pe[2][2],
-                           FLOAT const ms_ratio[2], III_psy_ratio const ratio[2][2]);
+void CBR_iteration_loop( lame_global_flags *gfp,
+                     FLOAT pe[2][2],
+		     FLOAT ms_ratio[2], 
+		     III_psy_ratio ratio[2][2]);
 
-void    VBR_old_iteration_loop(lame_global_flags const *gfp,
-                               FLOAT const pe[2][2],
-                               FLOAT const ms_ratio[2], III_psy_ratio const ratio[2][2]);
+void VBR_iteration_loop( lame_global_flags *gfp,
+			 FLOAT pe[2][2],
+			 FLOAT ms_ratio[2], 
+			 III_psy_ratio ratio[2][2]);
 
-void    VBR_new_iteration_loop(lame_global_flags const *gfp,
-                               FLOAT const pe[2][2],
-                               FLOAT const ms_ratio[2], III_psy_ratio const ratio[2][2]);
-
-void    ABR_iteration_loop(lame_global_flags const *gfp,
-                           FLOAT const pe[2][2],
-                           FLOAT const ms_ratio[2], III_psy_ratio const ratio[2][2]);
-
+void ABR_iteration_loop( lame_global_flags *gfp,
+			 FLOAT pe[2][2],
+			 FLOAT ms_ratio[2], 
+			 III_psy_ratio ratio[2][2]);
 
 #endif /* LAME_QUANTIZE_H */
+

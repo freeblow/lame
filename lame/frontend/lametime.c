@@ -54,16 +54,15 @@
 #endif
 
 
-double
-GetCPUTime(void)
+double GetCPUTime ( void )
 {
-    clock_t t;
+    clock_t  t;
 
-#if defined(_MSC_VER)  ||  defined(__BORLANDC__)
-    t = clock();
+#if defined(_MSC_VER)  ||  defined(__BORLANDC__)    
+    t = clock ();
 #else
-    t = clock();
-#endif
+    t = clock ();
+#endif    
     return t / (double) CLOCKS_PER_SEC;
 }
 
@@ -82,15 +81,14 @@ GetCPUTime(void)
 # include <sys/time.h>
 # include <unistd.h>
 
-double
-GetRealTime(void)
-{                       /* conforming:  SVr4, BSD 4.3 */
-    struct timeval t;
+double GetRealTime ( void )			/* conforming:  SVr4, BSD 4.3 */
+{
+    struct timeval  t;
 
-    if (0 != gettimeofday(&t, NULL))
-        assert(0);
+    if ( 0 != gettimeofday (&t, NULL) )
+        assert (0);
     return t.tv_sec + 1.e-6 * t.tv_usec;
-}
+} 
 
 #elif defined(WIN16)  ||  defined(WIN32)
 
@@ -98,28 +96,26 @@ GetRealTime(void)
 # include <sys/types.h>
 # include <sys/timeb.h>
 
-double
-GetRealTime(void)
-{                       /* conforming:  Win 95, Win NT */
-    struct timeb t;
-
-    ftime(&t);
+double GetRealTime ( void )			/* conforming:  Win 95, Win NT */
+{
+    struct timeb  t;
+    
+    ftime ( &t );
     return t.time + 1.e-3 * t.millitm;
 }
 
 #else
 
-double
-GetRealTime(void)
-{                       /* conforming:  SVr4, SVID, POSIX, X/OPEN, BSD 4.3 *//* BUT NOT GUARANTEED BY ANSI */
+double GetRealTime ( void )			/* conforming:  SVr4, SVID, POSIX, X/OPEN, BSD 4.3 */
+{						/* BUT NOT GUARANTEED BY ANSI */
     time_t  t;
-
-    t = time(NULL);
+    
+    t = time (NULL);
     return (double) t;
-}
+} 
 
 #endif
-
+                              
 
 #if defined(_WIN32) || defined(__CYGWIN__)
 # include <io.h>
@@ -128,19 +124,16 @@ GetRealTime(void)
 # include <unistd.h>
 #endif
 
-int
-lame_set_stream_binary_mode(FILE * const fp)
+int  lame_set_stream_binary_mode ( FILE* const fp )
 {
 #if   defined __EMX__
-    _fsetmode(fp, "b");
+    _fsetmode ( fp, "b" );
 #elif defined __BORLANDC__
-    setmode(_fileno(fp), O_BINARY);
+    setmode   (_fileno(fp),  O_BINARY );
 #elif defined __CYGWIN__
-    setmode(fileno(fp), _O_BINARY);
+    setmode   ( fileno(fp), _O_BINARY );
 #elif defined _WIN32
-    _setmode(_fileno(fp), _O_BINARY);
-#else
-    (void) fp;          /* doing nothing here, silencing the compiler only. */
+    _setmode  (_fileno(fp), _O_BINARY );
 #endif
     return 0;
 }
@@ -156,14 +149,14 @@ lame_set_stream_binary_mode(FILE * const fp)
 # include <sys/stat.h>
 #endif
 
-off_t
-lame_get_file_size(const char *const filename)
+off_t  lame_get_file_size ( const char* const filename )
 {
-    struct stat sb;
+    struct stat       sb;
 
-    if (0 == stat(filename, &sb))
+    if ( 0 == stat ( filename, &sb ) )
         return sb.st_size;
-    return (off_t) - 1;
+    return (off_t) -1;
 }
 
 /* End of lametime.c */
+
