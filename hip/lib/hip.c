@@ -5,16 +5,15 @@
 
 #define HF_MP(hf)     ((PMPSTR)hf->mp)
 #define MAX_U_32_NUM  0xFFFFFFFF
-/* #define HIP_DEBUG */
 
 /* stuff from lame's tables.c */
-static const int  bitrate_table    [3] [16] = {
+const int  bitrate_table    [3] [16] = {
     { 0,  8, 16, 24, 32, 40, 48, 56,  64,  80,  96, 112, 128, 144, 160, -1 },
     { 0, 32, 40, 48, 56, 64, 80, 96, 112, 128, 160, 192, 224, 256, 320, -1 },
     { 0,  8, 16, 24, 32, 40, 48, 56,  64,  80,  96, 112, 128, 144, 160, -1 },
 };
 
-static const int  samplerate_table [3]  [4] = { 
+const int  samplerate_table [3]  [4] = { 
     { 22050, 24000, 16000, -1 },      /* MPEG 2 */
     { 44100, 48000, 32000, -1 },      /* MPEG 1 */  
     { 11025, 12000,  8000, -1 },      /* MPEG 2.5 */
@@ -51,14 +50,21 @@ typedef struct
 /* end stuff from VbrTag.c/.h */
 
 static int  ExtractI4(unsigned char *buf);
-int         hip_GetVbrTag(VBRTAGDATA *pTagData,  unsigned char *buf);
+int         GetVbrTag(VBRTAGDATA *pTagData,  unsigned char *buf);
 
 static int  is_syncword_mp123(const void *const headerptr);
-
+int         decode_headers(HIP_File * hf, unsigned char *in_buffer, int in_buffer_len, 
+                char *out_buffer, int out_buffer_len);
 
 int
-hip_decode_init (HIP_File * hf)
+hip_open (FILE * file, HIP_File * hf, char *initial, long ibytes)
 {
+  unsigned char buf[100];
+  int ret, len;
+  char out[4806];
+/*  short int pcm_l[1152], pcm_r[1152]; */
+
+
   HF_MP(hf) = malloc(sizeof(MPSTR));
   if(HF_MP(hf) == NULL)
     return HIP_EFAULT;
@@ -66,26 +72,6 @@ hip_decode_init (HIP_File * hf)
   /* init the decoder and clear out our info struct */
   if (!InitMP3 (HF_MP(hf)))
     return HIP_EFAULT;
-
-  /* allows us to distinguish a decoder initialized with a file
-     vs. one initialized for use with a memory region. 
-   */ 
-  hf->datasource = NULL; 
-  return 0;
-}  
-
-int
-hip_open (FILE * file, HIP_File * hf, char *initial, long ibytes)
-{
-  unsigned char buf[100];
-  int ret, len;
-  char out[4608];
-/*  short int pcm_l[1152], pcm_r[1152]; */
-
-
-  ret = hip_decode_init(hf);
-  if(ret != 0)
-    return ret;
 
   hf->datasource = file;
   
@@ -114,7 +100,7 @@ hip_open (FILE * file, HIP_File * hf, char *initial, long ibytes)
      yet prepared to handle the output.
   */
   
-  ret = hip_decode_headers (hf, buf, len, out, sizeof(out));
+  ret = decode_headers (hf, buf, len, out, sizeof(out));
   if (ret == -1)
     return -1;
 
@@ -125,7 +111,7 @@ hip_open (FILE * file, HIP_File * hf, char *initial, long ibytes)
       if (len != sizeof (buf))
         return -1;
       ret =
-        hip_decode_headers (hf, buf, len, out, sizeof(out));
+        decode_headers (hf, buf, len, out, sizeof(out));
       if (-1 == ret)
         return -1;
     }
@@ -154,13 +140,13 @@ hip_open (FILE * file, HIP_File * hf, char *initial, long ibytes)
 #ifdef HIP_DEBUG 
     fprintf(stderr,"exiting hip_open:\n");
     fprintf(stderr,"  ret        = %i NEED_MORE=%i \n", ret, MP3_NEED_MORE);
-    fprintf(stderr,"  stereo     = %i\n", HF_MP(hf)->fr.stereo); 
-    fprintf(stderr,"  samp       = %li\n", freqs[HF_MP(hf)->fr.sampling_frequency]); 
-    fprintf(stderr,"  framesize  = %i\n", HF_MP(hf)->framesize); 
+    fprintf(stderr,"  stereo     = %i\n", HF_MP(hf).fr.stereo); 
+    fprintf(stderr,"  samp       = %li\n", freqs[HF_MP(hf).fr.sampling_frequency]); 
+    fprintf(stderr,"  framesize  = %i\n", HF_MP(hf).framesize); 
     fprintf(stderr,"  bitrate    = %i\n", hf->bitrate); 
-    fprintf(stderr,"  num frames = %u\n", HF_MP(hf)->num_frames); 
+    fprintf(stderr,"  num frames = %u\n", HF_MP(hf).num_frames); 
     fprintf(stderr,"  num samp   = %li\n", hf->nsamp);
-    fprintf(stderr,"  mode       = %i\n", HF_MP(hf)->fr.mode); 
+    fprintf(stderr,"  mode       = %i\n", HF_MP(hf).fr.mode); 
 #endif
 
   return 0;
@@ -183,56 +169,45 @@ wrap_decodeMP3(PMPSTR mp,unsigned char *inmemory,int inmemsize,char *outmemory,i
   return ret;
 }
 
-void hip_decode_reset(HIP_File *hf)
-{
-  decode_reset(HF_MP(hf));
-}
-
-int hip_audiodata_precedesframes(HIP_File *hf)
-{
-  return audiodata_precedesframes(HF_MP(hf));
-}
-
 long
 hip_read (HIP_File * hf, char *out_buffer, int out_buffer_len,
           int bigendianp, int word, int sgned, int *bitstream)
 {
-  int      in_buffer_len = 0;
-  unsigned char in_buffer[1024];
-  int     processed_bytes;
-  int     decode_status;
-  
-  memset(out_buffer, 0, out_buffer_len);
+    int      in_buffer_len = 0;
+    unsigned char in_buffer[1024];
+    int     processed_bytes;
+    int     decode_status;
+    
+    memset(out_buffer, 0, out_buffer_len);
         
-  /* first see if we still have data buffered in the decoder: */
-  decode_status = wrap_decodeMP3(HF_MP(hf), in_buffer, in_buffer_len, out_buffer, out_buffer_len, &processed_bytes);
-  if (decode_status == MP3_NEED_MORE || decode_status == MP3_OK)  // LMS
-								  // added check.
-    { 
-      /* read until we get a valid output frame */
-      while (1) 
-	{
-	  in_buffer_len = fread(in_buffer, 1, sizeof(in_buffer), hf->datasource);
-	  if (in_buffer_len == 0) 
-	    {
-	      /* we are done reading the file, but check for buffered data */
-	      decode_status = wrap_decodeMP3(HF_MP(hf), in_buffer, in_buffer_len, out_buffer, out_buffer_len, &processed_bytes);
-	      if (decode_status == MP3_NEED_MORE || decode_status == MP3_ERR) 
-		return 0;  // done with file
-	      break;
-	    }  
+    /* first see if we still have data buffered in the decoder: */
+    decode_status = wrap_decodeMP3(HF_MP(hf), in_buffer, in_buffer_len, out_buffer, out_buffer_len, &processed_bytes);
+    if (decode_status == MP3_NEED_MORE) 
+      { 
+        /* read until we get a valid output frame */
+        while (1) 
+          {
+            in_buffer_len = fread(in_buffer, 1, sizeof(in_buffer), hf->datasource);
+            if (in_buffer_len == 0) 
+              {
+                /* we are done reading the file, but check for buffered data */
+                decode_status = wrap_decodeMP3(HF_MP(hf), in_buffer, in_buffer_len, out_buffer, out_buffer_len, &processed_bytes);
+                if (decode_status == MP3_NEED_MORE || decode_status == MP3_ERR) 
+                    return 0;  // done with file
+                break;
+              }  
        
-	  decode_status = wrap_decodeMP3(HF_MP(hf), in_buffer, in_buffer_len, out_buffer, out_buffer_len, &processed_bytes);
+            decode_status = wrap_decodeMP3(HF_MP(hf), in_buffer, in_buffer_len, out_buffer, out_buffer_len, &processed_bytes);
 
-	  if (processed_bytes == -1) 
-	    /* FIXME: is this the right error code? */
-	    return HIP_HOLE;
-	  if (decode_status == MP3_OK && processed_bytes > 0) 
-	    break;
-	}
-    }
-  
-  return (long)processed_bytes;
+            if (processed_bytes == -1) 
+                /* FIXME: is this the right error code? */
+                return HIP_HOLE;
+            if (decode_status == MP3_OK && processed_bytes > 0) 
+                break;
+          }
+      }
+
+    return (long)processed_bytes;
 }
 
 int
@@ -262,13 +237,13 @@ hip_info(HIP_File * hf, int link)
 
 /* from lame's mpglib_interface.c */
 /*
- * For hip_decode_headers:  return code
+ * For decode_headers:  return code
  * -1     error
  *  0     ok, but need more data before outputing any samples
  *  n     number of samples output.  either 576 or 1152 depending on MP3 file.
  */
 int
-hip_decode_headers(HIP_File * hf, unsigned char *in_buffer, int in_buffer_len, 
+decode_headers(HIP_File * hf, unsigned char *in_buffer, int in_buffer_len, 
     char *out_buffer, int out_buffer_len)
 {
     static const int smpls[2][4] = {
@@ -282,7 +257,6 @@ hip_decode_headers(HIP_File * hf, unsigned char *in_buffer, int in_buffer_len,
 
     hf->header_parsed = 0;
 
-    /* fprintf(stderr, "HF_MP(hf) = %p\n", HF_MP(hf)); */
     decode_status =
         decodeMP3(HF_MP(hf), in_buffer, in_buffer_len, out_buffer, out_buffer_len, &processed_bytes);
     /* three cases:  
@@ -350,7 +324,7 @@ hip_decode_headers(HIP_File * hf, unsigned char *in_buffer, int in_buffer_len,
     }
 
 #ifdef HIP_DEBUG
-    fprintf(stderr,"hip_decode_headers: decode status = %i / ret = %i\n", ret, decode_status);
+    fprintf(stderr,"decode_headers: decode status = %i / ret = %i\n", ret, decode_status);
 #endif
     return ret;
 }
@@ -375,11 +349,9 @@ is_syncword_mp123(const void *const headerptr)
         return 0;       // bad bitrate
     if ((p[2] & 0x0C) == 0x0C)
         return 0;       // no sample frequency with (32,44.1,48)/(1,2,4)    
-    if (((p[1] & 0x18) == 0x18) && ((p[1] & 0x06) == 0x04)) // illegal Layer II bitrate/Channel Mode comb
+    if ((p[1] & 0x06) == 0x04) // illegal Layer II bitrate/Channel Mode comb
         if (abl2[p[2] >> 4] & (1 << (p[3] >> 6)))
             return 0;
-    if ((p[3] & 3) == 2)
-        return 0;       /* reserved enphasis mode */
     return 1;
 }
 
@@ -402,7 +374,7 @@ ExtractI4(unsigned char *buf)
 
 /* from lame's VbrTag.c */
 int 
-hip_GetVbrTag(VBRTAGDATA *pTagData,  unsigned char *buf)
+GetVbrTag(VBRTAGDATA *pTagData,  unsigned char *buf)
 {
 	int			i, head_flags;
 	int			h_bitrate,h_id, h_mode, h_sr_index;
@@ -423,9 +395,9 @@ hip_GetVbrTag(VBRTAGDATA *pTagData,  unsigned char *buf)
             pTagData->samprate = samplerate_table[2][h_sr_index];
         else
             pTagData->samprate = samplerate_table[h_id][h_sr_index];
-        /*	if( h_id == 0 )
-        		pTagData->samprate >>= 1;
-	*/
+        //	if( h_id == 0 )
+        //		pTagData->samprate >>= 1;
+
 	/*  determine offset of header */
 	if( h_id )
 	{
@@ -495,14 +467,14 @@ hip_GetVbrTag(VBRTAGDATA *pTagData,  unsigned char *buf)
         pTagData->enc_padding=enc_padding;
 
 #ifdef HIP_DEBUG
-	fprintf(stderr,"exit hip_GetVbrTag:\n");
+	fprintf(stderr,"exit GetVbrTag:\n");
 	fprintf(stderr,"  tag         = %s\n",VBRTag);
 	fprintf(stderr,"  head_flags  = %d\n",head_flags);
 	fprintf(stderr,"  bytes       = %d\n",pTagData->bytes);
 	fprintf(stderr,"  frames      = %d\n",pTagData->frames);
 	fprintf(stderr,"  VBR Scale   = %d\n",pTagData->vbr_scale);
-	fprintf(stderr,"  enc_delay   = %i \n",enc_delay);
-	fprintf(stderr,"  enc_padding = %i \n",enc_padding);
+  fprintf(stderr,"  enc_delay   = %i \n",enc_delay);
+  fprintf(stderr,"  enc_padding = %i \n",enc_padding);
 	fprintf(stderr,"  toc         =\n");
 	if( pTagData->toc != NULL )
 	{

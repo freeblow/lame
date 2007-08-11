@@ -6,6 +6,6 @@ SUBDIRS =
 
 docdir = $(datadir)/doc/$(PACKAGE)-$(VERSION)
 
-doc_DATA = 
+doc_DATA = index.html
 
 EXTRA_DIST = $(doc_DATA)

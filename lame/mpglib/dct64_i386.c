@@ -6,24 +6,13 @@
  * even for Intel processors.
  */
 
-/* $Id$ */
-
-#ifdef HAVE_CONFIG_H
-#include <config.h>
-#endif
-
-#include "dct64_i386.h"
-#include "tabinit.h"
-
-#ifdef WITH_DMALLOC
-#include <dmalloc.h>
-#endif
+#include "mpg123.h"
 
 static void dct64_1(real *out0,real *out1,real *b1,real *b2,real *samples)
 {
 
  {
-  real *costab = pnts[0];
+  register real *costab = pnts[0];
 
   b1[0x00] = samples[0x00] + samples[0x1F];
   b1[0x1F] = (samples[0x00] - samples[0x1F]) * costab[0x0];
@@ -76,7 +65,7 @@ static void dct64_1(real *out0,real *out1,real *b1,real *b2,real *samples)
 
 
  {
-  real *costab = pnts[1];
+  register real *costab = pnts[1];
 
   b2[0x00] = b1[0x00] + b1[0x0F]; 
   b2[0x0F] = (b1[0x00] - b1[0x0F]) * costab[0];
@@ -114,7 +103,7 @@ static void dct64_1(real *out0,real *out1,real *b1,real *b2,real *samples)
  }
 
  {
-  real *costab = pnts[2];
+  register real *costab = pnts[2];
 
   b1[0x00] = b2[0x00] + b2[0x07];
   b1[0x07] = (b2[0x00] - b2[0x07]) * costab[0];
@@ -154,8 +143,8 @@ static void dct64_1(real *out0,real *out1,real *b1,real *b2,real *samples)
  }
 
  {
-  real const cos0 = pnts[3][0];
-  real const cos1 = pnts[3][1];
+  register real const cos0 = pnts[3][0];
+  register real const cos1 = pnts[3][1];
 
   b2[0x00] = b1[0x00] + b1[0x03];
   b2[0x03] = (b1[0x00] - b1[0x03]) * cos0;
@@ -199,7 +188,7 @@ static void dct64_1(real *out0,real *out1,real *b1,real *b2,real *samples)
  }
 
  {
-  real const cos0 = pnts[4][0];
+  register real const cos0 = pnts[4][0];
 
   b1[0x00] = b2[0x00] + b2[0x01];
   b1[0x01] = (b2[0x00] - b2[0x01]) * cos0;
@@ -317,9 +306,10 @@ static void dct64_1(real *out0,real *out1,real *b1,real *b2,real *samples)
  * the call via dct64 is a trick to force GCC to use
  * (new) registers for the b1,b2 pointer to the bufs[xx] field
  */
-void dct64( real *a,real *b,real *c)
+void dct64(real *a,real *b,real *c)
 {
   real bufs[0x40];
   dct64_1(a,b,bufs,bufs+0x20,c);
 }
+
 

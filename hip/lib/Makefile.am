@@ -1,7 +1,5 @@
 ## $Id$
 
-AUTOMAKE_OPTIONS = foreign
-
 INCLUDES = -I$(top_srcdir)/include -I$(top_builddir)
 
 DEFS = @DEFS@ -DNOANALYSIS
@@ -49,3 +47,6 @@ lclint.txt: ${libmp3hip_la_SOURCES} ${noinst_HEADERS}
 lclint: lclint.txt
 	more lclint.txt
 
+$(OBJECTS): libtool
+libtool: $(LIBTOOL_DEPS)
+	$(SHELL) $(top_builddir)/config.status --recheck

@@ -110,9 +110,6 @@ typedef struct mpeg_info{
   long bitrate_lower;
 } mpeg_info;
 
-
-extern int hip_decode_init (HIP_File * hf);
- 
 /** hip_open
     
     This is the main function used to open and initialize an HIP_File
@@ -142,14 +139,6 @@ extern long hip_read(HIP_File *hf,char *buffer,int length,
 		    int bigendianp,int word,int sgned,int *bitstream);
 extern int hip_clear(HIP_File *hf);
 extern mpeg_info *hip_info(HIP_File *hf,int link);
-
-extern int hip_decode_headers(HIP_File * hf, unsigned char *in_buffer, int in_buffer_len, char *out_buffer, int out_buffer_len);
-
-/* Resets the decoding, discarding partially decoded data. */
-extern void hip_decode_reset(HIP_File *hf);
-
-/* Returns the number of MP3 frames the audio data precedes the current frame, useful for noncontiguous decoding of frames. */
-extern int hip_audiodata_precedesframes(HIP_File *hf);
 
 /*
 

@@ -60,7 +60,7 @@ char *strchr (), *strrchr ();
 #define         MPG_MD_DUAL_CHANNEL     2
 #define         MPG_MD_MONO             3
 
-#define MAXFRAMESIZE 2880
+#define MAXFRAMESIZE 1792
 
 /* AF: ADDED FOR LAYER1/LAYER2 */
 #define         SCALE_BLOCK             12
@@ -72,14 +72,14 @@ char *strchr (), *strrchr ();
 struct frame {
     int stereo;
     int jsbound;
-  int single;             /* single channel (monophonic) */
-  int lsf;                /* 0 = MPEG-1, 1 = MPEG-2/2.5 */
-  int mpeg25;             /* 1 = MPEG-2.5, 0 = MPEG-1/2 */
+    int single;
+    int lsf;
+    int mpeg25;
     int header_change;
-  int lay;                /* Layer */
-  int error_protection;   /* 1 = CRC-16 code following header */
+    int lay;
+    int error_protection;
     int bitrate_index;
-  int sampling_frequency; /* sample rate of decompressed audio in Hz */
+    int sampling_frequency;
     int padding;
     int extension;
     int mode;
@@ -95,6 +95,7 @@ struct frame {
     struct al_table2 *alloc;
 	int down_sample_sblimit;
 	int	down_sample;
+
 #endif
 
 };
@@ -131,4 +132,3 @@ struct III_sideinfo
 
 
 #endif
-

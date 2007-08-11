@@ -1,47 +1,26 @@
-#ifndef MPG123_H_INCLUDED
-#define MPG123_H_INCLUDED
-
 #include        <stdio.h>
-
-#ifdef STDC_HEADERS
-# include <string.h>
-#else
-# ifndef HAVE_STRCHR
-#  define strchr index
-#  define strrchr rindex
-# endif
-char *strchr (), *strrchr ();
-# ifndef HAVE_MEMCPY
-#  define memcpy(d, s, n) bcopy ((s), (d), (n))
-#  define memmove(d, s, n) bcopy ((s), (d), (n))
-# endif
-#endif
-
+#include        <string.h>
 #include        <signal.h>
 
 
-#if defined(__riscos__) && defined(FPA10)
-#include	"ymath.h"
-#else
-#include	<math.h>
-#endif
+#include        <math.h>
 
-#ifndef M_PI
-#define M_PI       3.14159265358979323846
+#ifdef _MSC_VER
+
+# define M_PI       3.14159265358979323846
+# define M_SQRT2	1.41421356237309504880
+# define REAL_IS_FLOAT
+# define NEW_DCT9
+
+# define random rand
+# define srandom srand
+
 #endif
-#ifndef M_SQRT2
+#ifdef __EMX__
+#define M_PI       3.14159265358979323846
 #define M_SQRT2    1.41421356237309504880
 #endif
 
-#ifndef FALSE
-#define         FALSE                   0
-#endif
-#ifndef TRUE
-#define         TRUE                    1
-#endif
-
-#undef REAL_IS_FLOAT
-#define REAL_IS_FLOAT
 
 #ifdef REAL_IS_FLOAT
 #  define real float
@@ -50,6 +29,15 @@ char *strchr (), *strrchr ();
 #else
 #  define real double
 #endif
+
+#ifdef __GNUC__
+#define INLINE inline
+#else
+#define INLINE
+#endif
+
+/* AUDIOBUFSIZE = n*64 with n=1,2,3 ...  */
+#define		AUDIOBUFSIZE		16384
 
 #define         FALSE                   0
 #define         TRUE                    1
@@ -62,10 +50,7 @@ char *strchr (), *strrchr ();
 #define         MPG_MD_DUAL_CHANNEL     2
 #define         MPG_MD_MONO             3
 
-#define MAXFRAMESIZE 2880
-
-/* AF: ADDED FOR LAYER1/LAYER2 */
-#define         SCALE_BLOCK             12
+#define MAXFRAMESIZE 1792
 
 
 /* Pre Shift fo 16 to 8 bit converter table */
@@ -90,15 +75,28 @@ struct frame {
     int original;
     int emphasis;
     int framesize; /* computed framesize */
-
-	/* AF: ADDED FOR LAYER1/LAYER2 */
-    int II_sblimit;
-    struct al_table2 *alloc;
-	int down_sample_sblimit;
-	int	down_sample;
-
-
 };
+
+struct parameter {
+	int quiet;	/* shut up! */
+	int tryresync;  /* resync stream after error */
+	int verbose;    /* verbose level */
+	int checkrange;
+};
+
+/* extern unsigned int   get1bit(void); */
+extern unsigned int   getbits(int);
+extern unsigned int   getbits_fast(int);
+extern int set_pointer(long);
+
+extern unsigned char *wordpointer;
+extern int bitindex;
+
+extern void make_decode_tables(long scaleval);
+extern int do_layer3(struct frame *fr,unsigned char *,int *);
+extern int decode_header(struct frame *fr,unsigned long newhead);
+
+
 
 struct gr_info_s {
       int scfsi;
@@ -130,6 +128,52 @@ struct III_sideinfo
   } ch[2];
 };
 
+extern int synth_1to1 (real *,int,unsigned char *,int *);
+extern int synth_1to1_8bit (real *,int,unsigned char *,int *);
+extern int synth_1to1_mono (real *,unsigned char *,int *);
+extern int synth_1to1_mono2stereo (real *,unsigned char *,int *);
+extern int synth_1to1_8bit_mono (real *,unsigned char *,int *);
+extern int synth_1to1_8bit_mono2stereo (real *,unsigned char *,int *);
 
-#endif
+extern int synth_2to1 (real *,int,unsigned char *,int *);
+extern int synth_2to1_8bit (real *,int,unsigned char *,int *);
+extern int synth_2to1_mono (real *,unsigned char *,int *);
+extern int synth_2to1_mono2stereo (real *,unsigned char *,int *);
+extern int synth_2to1_8bit_mono (real *,unsigned char *,int *);
+extern int synth_2to1_8bit_mono2stereo (real *,unsigned char *,int *);
+
+extern int synth_4to1 (real *,int,unsigned char *,int *);
+extern int synth_4to1_8bit (real *,int,unsigned char *,int *);
+extern int synth_4to1_mono (real *,unsigned char *,int *);
+extern int synth_4to1_mono2stereo (real *,unsigned char *,int *);
+extern int synth_4to1_8bit_mono (real *,unsigned char *,int *);
+extern int synth_4to1_8bit_mono2stereo (real *,unsigned char *,int *);
+
+extern int synth_ntom (real *,int,unsigned char *,int *);
+extern int synth_ntom_8bit (real *,int,unsigned char *,int *);
+extern int synth_ntom_mono (real *,unsigned char *,int *);
+extern int synth_ntom_mono2stereo (real *,unsigned char *,int *);
+extern int synth_ntom_8bit_mono (real *,unsigned char *,int *);
+extern int synth_ntom_8bit_mono2stereo (real *,unsigned char *,int *);
+
+extern void rewindNbits(int bits);
+extern int  hsstell(void);
+extern int get_songlen(struct frame *fr,int no);
+
+extern void init_layer3(int);
+extern void init_layer2(void);
+extern void make_decode_tables(long scale);
+extern void make_conv16to8_table(int);
+extern void dct64(real *,real *,real *);
+
+extern void synth_ntom_set_step(long,long);
+
+extern unsigned char *conv16to8;
+extern long freqs[9];
+extern real muls[27][64];
+extern real decwin[512+32];
+extern real *pnts[5];
+
+extern struct parameter param;
+
 

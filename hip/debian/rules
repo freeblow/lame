@@ -8,10 +8,6 @@
 # This is the debhelper compatability version to use.
 export DH_COMPAT=3
 
-PYTHON2.1 = /usr/bin/python2.1
-PYTHON2.2 = /usr/bin/python2.2
-PYTHON2.3 = /usr/bin/python2.3
-
 export DEB_HOST_GNU_TYPE  ?= $(shell dpkg-architecture -qDEB_HOST_GNU_TYPE)
 export DEB_BUILD_GNU_TYPE ?= $(shell dpkg-architecture -qDEB_BUILD_GNU_TYPE)
 
@@ -28,14 +24,8 @@ configure-stamp:
 build: configure-stamp build-stamp
 build-stamp:
 	dh_testdir
-	
-	$(MAKE)
 
-	cd python
-	$(PYTHON2.1) setup.py build
-	$(PYTHON2.2) setup.py build
-	$(PYTHON2.3) setup.py build
-	cd ..                        
+	$(MAKE)
 
 	touch build-stamp
 
@@ -54,14 +44,13 @@ autotools:
 	   echo WARNING: GNU config scripts updated from master copies 1>&2 ;\
 	fi
 
-clean:
+clean: autotools
 	dh_testdir
 	dh_testroot
 	rm -f build-stamp configure-stamp
 
 	-$(MAKE) distclean
-	rm -rf python/build
-	
+
 	dh_clean
 
 install: build
