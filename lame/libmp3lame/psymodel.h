@@ -23,20 +23,20 @@
 #define LAME_PSYMODEL_H
 
 
-int     L3psycho_anal_ns(lame_internal_flags * gfc,
-                         const sample_t *const buffer[2], int gr,
+int     L3psycho_anal_ns(lame_global_flags const *gfc,
+                         const sample_t * buffer[2], int gr,
                          III_psy_ratio ratio[2][2],
                          III_psy_ratio MS_ratio[2][2],
                          FLOAT pe[2], FLOAT pe_MS[2], FLOAT ener[2], int blocktype_d[2]);
 
-int     L3psycho_anal_vbr(lame_internal_flags * gfc,
-                          const sample_t *const buffer[2], int gr,
+int     L3psycho_anal_vbr(lame_global_flags const *gfc,
+                          const sample_t * buffer[2], int gr,
                           III_psy_ratio ratio[2][2],
                           III_psy_ratio MS_ratio[2][2],
                           FLOAT pe[2], FLOAT pe_MS[2], FLOAT ener[2], int blocktype_d[2]);
 
 
-int     psymodel_init(lame_global_flags const* gfp);
+int     psymodel_init(lame_global_flags * gfp);
 
 
 #define rpelev 2
@@ -46,7 +46,22 @@ int     psymodel_init(lame_global_flags const* gfp);
 
 /* size of each partition band, in barks: */
 #define DELBARK .34
+#define CW_LOWER_INDEX 6
 
+
+#if 1
+    /* AAC values, results in more masking over MP3 values */
+# define TMN 18
+# define NMT 6
+#else
+    /* MP3 values */
+# define TMN 29
+# define NMT 6
+#endif
+
+/* ISO values */
+#define CONV1 (-.299)
+#define CONV2 (-.43)
 
 /* tuned for output level (sensitive to energy scale) */
 #define VO_SCALE (1./( 14752*14752 )/(BLKSIZE/2))
