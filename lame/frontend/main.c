@@ -597,7 +597,6 @@ parse_nogap_filenames(int nogapout, char *inPath, char *outPath, char *outdir)
     char   *slasher;
     size_t  n;
 
-    /* FIXME: replace strcpy by safer strncpy */
     strcpy(outPath, outdir);
     if (!nogapout) {
         strncpy(outPath, inPath, PATH_MAX + 1 - 4);
@@ -635,13 +634,12 @@ parse_nogap_filenames(int nogapout, char *inPath, char *outPath, char *outdir)
                  && (outPath[strlen(outPath) - 1] != '/'
                      &&
                      outPath[strlen(outPath) - 1] != '\\' && outPath[strlen(outPath) - 1] != ':'))
-            /* FIXME: replace strcat by safer strncat */
 #ifdef _WIN32
-            strncat(outPath, "\\", PATH_MAX + 1 - 4);
+            strcat(outPath, "\\");
 #elif __OS2__
-            strncat(outPath, "\\", PATH_MAX + 1 - 4);
+            strcat(outPath, "\\");
 #else
-            strncat(outPath, "/", PATH_MAX + 1 - 4);
+            strcat(outPath, "/");
 #endif
 
         strncat(outPath, slasher, PATH_MAX + 1 - 4);

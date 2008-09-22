@@ -111,20 +111,15 @@ static const struct {
 
 
 static void
-quantize_lines_xrpow_01(unsigned int l, FLOAT istep, const FLOAT * xr, int *ix)
+quantize_lines_xrpow_01(int l, FLOAT istep, const FLOAT * xr, int *ix)
 {
-    const FLOAT compareval0 = (1.0f - 0.4054f) / istep;
-    unsigned int i;
+    const FLOAT compareval0 = (1.0 - 0.4054) / istep;
 
     assert(l > 0);
-    assert(l % 2 == 0);
-    for (i = 0; i < l; i += 2) {
-        FLOAT const xr_0 = xr[i+0];
-        FLOAT const xr_1 = xr[i+1];
-        int const ix_0 = (compareval0 > xr_0) ? 0 : 1;
-        int const ix_1 = (compareval0 > xr_1) ? 0 : 1;
-        ix[i+0] = ix_0;
-        ix[i+1] = ix_1;
+    l = l >> 1;
+    while (l--) {
+        *(ix++) = (compareval0 > *xr++) ? 0 : 1;
+        *(ix++) = (compareval0 > *xr++) ? 0 : 1;
     }
 }
 
@@ -142,10 +137,10 @@ typedef union {
 
 
 static void
-quantize_lines_xrpow(unsigned int l, FLOAT istep, const FLOAT * xp, int *pi)
+quantize_lines_xrpow(int l, FLOAT istep, const FLOAT * xp, int *pi)
 {
     fi_union *fi;
-    unsigned int remaining;
+    int     remaining;
 
     assert(l > 0);
 
@@ -220,9 +215,9 @@ quantize_lines_xrpow(unsigned int l, FLOAT istep, const FLOAT * xp, int *pi)
 
 
 static void
-quantize_lines_xrpow(unsigned int l, FLOAT istep, const FLOAT * xr, int *ix)
+quantize_lines_xrpow(int l, FLOAT istep, const FLOAT * xr, int *ix)
 {
-    unsigned int remaining;
+    int     remaining;
 
     assert(l > 0);
 
@@ -447,27 +442,27 @@ ix_max(const int *ix, const int *end)
 
 
 static int
-count_bit_ESC(const int *ix, const int *const end, int t1, const int t2, unsigned int *const s)
+count_bit_ESC(const int *ix, const int *const end, int t1, const int t2, int *const s)
 {
     /* ESC-table is used */
-    unsigned int const linbits = ht[t1].xlen * 65536u + ht[t2].xlen;
-    unsigned int sum = 0, sum2;
+    int const linbits = ht[t1].xlen * 65536 + ht[t2].xlen;
+    int     sum = 0, sum2;
 
     do {
-        unsigned int x = *ix++;
-        unsigned int y = *ix++;
+        int     x = *ix++;
+        int     y = *ix++;
 
-        if (x != 0u) {
-            if (x >= 15u) {
-                x = 15u;
+        if (x != 0) {
+            if (x > 14) {
+                x = 15;
                 sum += linbits;
             }
-            x *= 16u;
+            x *= 16;
         }
 
-        if (y != 0u) {
-            if (y >= 15u) {
-                y = 15u;
+        if (y != 0) {
+            if (y > 14) {
+                y = 15;
                 sum += linbits;
             }
             x += y;
@@ -476,8 +471,8 @@ count_bit_ESC(const int *ix, const int *const end, int t1, const int t2, unsigne
         sum += largetbl[x];
     } while (ix < end);
 
-    sum2 = sum & 0xffffu;
-    sum >>= 16u;
+    sum2 = sum & 0xffff;
+    sum >>= 16;
 
     if (sum > sum2) {
         sum = sum2;
@@ -490,16 +485,17 @@ count_bit_ESC(const int *ix, const int *const end, int t1, const int t2, unsigne
 
 
 inline static int
-count_bit_noESC(const int *ix, const int *const end, unsigned int *const s)
+count_bit_noESC(const int *ix, const int *const end, int *const s)
 {
     /* No ESC-words */
-    unsigned int sum1 = 0;
-    const uint8_t *const hlen1 = ht[1].hlen;
+    int     sum1 = 0;
+    const char *const hlen1 = ht[1].hlen;
 
-    for (; ix < end; ix += 2) {
-        unsigned int const x = ix[0] * 2 + ix[1];
+    do {
+        int const x = ix[0] * 2 + ix[1];
+        ix += 2;
         sum1 += hlen1[x];
-    }
+    } while (ix < end);
 
     *s += sum1;
     return 1;
@@ -508,26 +504,25 @@ count_bit_noESC(const int *ix, const int *const end, unsigned int *const s)
 
 
 inline static int
-count_bit_noESC_from2(const int *ix, const int *const end, int t1, unsigned int *const s)
+count_bit_noESC_from2(const int *ix, const int *const end, int t1, int *const s)
 {
     /* No ESC-words */
     unsigned int sum = 0, sum2;
-    const unsigned int xlen = ht[t1].xlen;
-    if (t1 == 2) {
-        for (; ix < end; ix += 2) {
-            unsigned int const x = ix[0] * xlen + ix[1];
-            sum += table23[x];
-        }
-    }
-    else {
-        for (; ix < end; ix += 2) {
-            unsigned int const x = ix[0] * xlen + ix[1];
-            sum += table56[x];
-        }
-    }
+    const int xlen = ht[t1].xlen;
+    const unsigned int *hlen;
+    if (t1 == 2)
+        hlen = table23;
+    else
+        hlen = table56;
 
-    sum2 = sum & 0xffffu;
-    sum >>= 16u;
+    do {
+        int const x = ix[0] * xlen + ix[1];
+        ix += 2;
+        sum += hlen[x];
+    } while (ix < end);
+
+    sum2 = sum & 0xffff;
+    sum >>= 16;
 
     if (sum > sum2) {
         sum = sum2;
@@ -540,24 +535,25 @@ count_bit_noESC_from2(const int *ix, const int *const end, int t1, unsigned int 
 
 
 inline static int
-count_bit_noESC_from3(const int *ix, const int *const end, int t1, unsigned int *const s)
+count_bit_noESC_from3(const int *ix, const int *const end, int t1, int *const s)
 {
     /* No ESC-words */
-    unsigned int sum1 = 0;
-    unsigned int sum2 = 0;
-    unsigned int sum3 = 0;
-    const unsigned int xlen = ht[t1].xlen;
-    const uint8_t *const hlen1 = ht[t1].hlen;
-    const uint8_t *const hlen2 = ht[t1 + 1].hlen;
-    const uint8_t *const hlen3 = ht[t1 + 2].hlen;
+    int     sum1 = 0;
+    int     sum2 = 0;
+    int     sum3 = 0;
+    const int xlen = ht[t1].xlen;
+    const char *const hlen1 = ht[t1].hlen;
+    const char *const hlen2 = ht[t1 + 1].hlen;
+    const char *const hlen3 = ht[t1 + 2].hlen;
     int     t;
 
-    for (; ix < end; ix += 2) {
-        unsigned int const x = ix[0] * xlen + ix[1];
+    do {
+        int const x = ix[0] * xlen + ix[1];
+        ix += 2;
         sum1 += hlen1[x];
         sum2 += hlen2[x];
         sum3 += hlen3[x];
-    }
+    } while (ix < end);
 
     t = t1;
     if (sum1 > sum2) {
@@ -588,10 +584,9 @@ count_bit_noESC_from3(const int *ix, const int *const end, int t1, unsigned int 
 */
 
 static int
-choose_table_nonMMX(const int *ix, const int *const end, int *const _s)
+choose_table_nonMMX(const int *ix, const int *const end, int *const s)
 {
-    unsigned int* s = (unsigned int*)_s;
-    unsigned int  max;
+    int     max;
     int     choice, choice2;
     static const int huf_tbl_noESC[] = {
         1, 2, 5, 7, 7, 10, 10, 13, 13, 13, 13, 13, 13, 13, 13
@@ -601,7 +596,7 @@ choose_table_nonMMX(const int *ix, const int *const end, int *const _s)
 
     switch (max) {
     case 0:
-        return 0;
+        return max;
 
     case 1:
         return count_bit_noESC(ix, end, s);
@@ -630,7 +625,7 @@ choose_table_nonMMX(const int *ix, const int *const end, int *const _s)
             *s = LARGE_BITS;
             return -1;
         }
-        max -= 15u;
+        max -= 15;
         for (choice2 = 24; choice2 < 32; choice2++) {
             if (ht[choice2].linmax >= max) {
                 break;
@@ -655,7 +650,6 @@ int
 noquant_count_bits(lame_internal_flags const *const gfc,
                    gr_info * const gi, calc_noise_data * prev_noise)
 {
-    SessionConfig_t const *const cfg = &gfc->cfg;
     int     bits = 0;
     int     i, a1, a2;
     int const *const ix = gi->l3_enc;
@@ -705,8 +699,8 @@ noquant_count_bits(lame_internal_flags const *const gfc,
     }
     else if (gi->block_type == NORM_TYPE) {
         assert(i <= 576); /* bv_scf has 576 entries (0..575) */
-        a1 = gi->region0_count = gfc->sv_qnt.bv_scf[i - 2];
-        a2 = gi->region1_count = gfc->sv_qnt.bv_scf[i - 1];
+        a1 = gi->region0_count = gfc->bv_scf[i - 2];
+        a2 = gi->region1_count = gfc->bv_scf[i - 1];
 
         assert(a1 + a2 + 2 < SBPSY_l);
         a2 = gfc->scalefac_band.l[a1 + a2 + 2];
@@ -740,7 +734,7 @@ noquant_count_bits(lame_internal_flags const *const gfc,
         gi->table_select[0] = gfc->choose_table(ix, ix + a1, &bits);
     if (a1 < a2)
         gi->table_select[1] = gfc->choose_table(ix + a1, ix + a2, &bits);
-    if (cfg->use_best_huffman == 2) {
+    if (gfc->use_best_huffman == 2) {
         gi->part2_3_length = bits;
         best_huffman_divide(gfc, gi);
         bits = gi->part2_3_length;
@@ -774,7 +768,7 @@ count_bits(lame_internal_flags const *const gfc,
 
     quantize_xrpow(xr, ix, IPOW20(gi->global_gain), gi, prev_noise);
 
-    if (gfc->sv_qnt.substep_shaping & 2) {
+    if (gfc->substep_shaping & 2) {
         int     sfb, j = 0;
         /* 0.634521682242439 = 0.5946*2**(.5*0.1875) */
         int const gain = gi->global_gain + gi->scalefac_scale;
@@ -782,7 +776,7 @@ count_bits(lame_internal_flags const *const gfc,
         for (sfb = 0; sfb < gi->sfbmax; sfb++) {
             int const width = gi->width[sfb];
             assert(width >= 0);
-            if (!gfc->sv_qnt.pseudohalf[sfb]) {
+            if (!gfc->pseudohalf[sfb]) {
                 j += width;
             }
             else {
@@ -880,7 +874,6 @@ recalc_divide_sub(const lame_internal_flags * const gfc,
 void
 best_huffman_divide(const lame_internal_flags * const gfc, gr_info * const gi)
 {
-    SessionConfig_t const *const cfg = &gfc->cfg;
     int     i, a1, a2;
     gr_info cod_info2;
     int const *const ix = gi->l3_enc;
@@ -892,7 +885,7 @@ best_huffman_divide(const lame_internal_flags * const gfc, gr_info * const gi)
 
 
     /* SHORT BLOCK stuff fails for MPEG2 */
-    if (gi->block_type == SHORT_TYPE && cfg->mode_gr == 1)
+    if (gi->block_type == SHORT_TYPE && gfc->mode_gr == 1)
         return;
 
 
@@ -1003,7 +996,7 @@ scfsi_calc(int ch, III_side_info_t * l3_side)
             int const c = slen1_tab[i] * c1 + slen2_tab[i] * c2;
             if (gi->part2_length > c) {
                 gi->part2_length = c;
-                gi->scalefac_compress = (int)i;
+                gi->scalefac_compress = i;
             }
         }
     }
@@ -1018,7 +1011,6 @@ void
 best_scalefac_store(const lame_internal_flags * gfc,
                     const int gr, const int ch, III_side_info_t * const l3_side)
 {
-    SessionConfig_t const *const cfg = &gfc->cfg;
     /* use scalefac_scale if we can */
     gr_info *const gi = &l3_side->tt[gr][ch];
     int     sfb, i, j, l;
@@ -1031,11 +1023,12 @@ best_scalefac_store(const lame_internal_flags * gfc,
     for (sfb = 0; sfb < gi->sfbmax; sfb++) {
         int const width = gi->width[sfb];
         assert(width >= 0);
-        for (l = j, j += width; l < j; ++l) {
-            if (gi->l3_enc[l] != 0)
+        j += width;
+        for (l = -width; l < 0; l++) {
+            if (gi->l3_enc[l + j] != 0)
                 break;
         }
-        if (l == j)
+        if (l == 0)
             gi->scalefac[sfb] = recalc = -2; /* anything goes. */
         /*  only best_scalefac_store and calc_scfsi 
          *  know--and only they should know--about the magic number -2. 
@@ -1057,7 +1050,7 @@ best_scalefac_store(const lame_internal_flags * gfc,
         }
     }
 
-    if (!gi->preflag && gi->block_type != SHORT_TYPE && cfg->mode_gr == 2) {
+    if (!gi->preflag && gi->block_type != SHORT_TYPE && gfc->mode_gr == 2) {
         for (sfb = 11; sfb < SBPSY_l; sfb++)
             if (gi->scalefac[sfb] < pretab[sfb] && gi->scalefac[sfb] != -2)
                 break;
@@ -1073,7 +1066,7 @@ best_scalefac_store(const lame_internal_flags * gfc,
     for (i = 0; i < 4; i++)
         l3_side->scfsi[ch][i] = 0;
 
-    if (cfg->mode_gr == 2 && gr == 1
+    if (gfc->mode_gr == 2 && gr == 1
         && l3_side->tt[0][ch].block_type != SHORT_TYPE
         && l3_side->tt[1][ch].block_type != SHORT_TYPE) {
         scfsi_calc(ch, l3_side);
@@ -1085,7 +1078,12 @@ best_scalefac_store(const lame_internal_flags * gfc,
         }
     }
     if (recalc) {
-        (void) scale_bitcount(gfc, gi);
+        if (gfc->mode_gr == 2) {
+            (void) scale_bitcount(gi);
+        }
+        else {
+            (void) scale_bitcount_lsf(gfc, gi);
+        }
     }
 }
 
@@ -1128,8 +1126,8 @@ static const int scale_long[16] = {
 
 /* Also calculates the number of bits necessary to code the scalefactors. */
 
-static int
-mpeg1_scale_bitcount(const lame_internal_flags * gfc, gr_info * const cod_info)
+int
+scale_bitcount(gr_info * const cod_info)
 {
     int     k, sfb, max_slen1 = 0, max_slen2 = 0;
 
@@ -1137,7 +1135,6 @@ mpeg1_scale_bitcount(const lame_internal_flags * gfc, gr_info * const cod_info)
     const int *tab;
     int    *const scalefac = cod_info->scalefac;
 
-    (void) gfc;
     assert(all_scalefactors_not_negative(scalefac, cod_info->sfbmax));
 
     if (cod_info->block_type == SHORT_TYPE) {
@@ -1210,8 +1207,8 @@ static const int max_range_sfac_tab[6][4] = {
 /*  This is reverse-engineered from section 2.4.3.2 of the MPEG2 IS,     */
 /* "Audio Decoding Layer III"                                            */
 
-static int
-mpeg2_scale_bitcount(const lame_internal_flags * gfc, gr_info * const cod_info)
+int
+scale_bitcount_lsf(const lame_internal_flags * gfc, gr_info * const cod_info)
 {
     int     table_number, row_in_table, partition, nr_sfb, window, over;
     int     i, sfb, max_sfac[4];
@@ -1311,18 +1308,6 @@ mpeg2_scale_bitcount(const lame_internal_flags * gfc, gr_info * const cod_info)
 }
 
 
-int
-scale_bitcount(const lame_internal_flags * gfc, gr_info * cod_info)
-{
-    if (gfc->cfg.mode_gr == 2) {
-        return mpeg1_scale_bitcount(gfc, cod_info);
-    }
-    else {
-        return mpeg2_scale_bitcount(gfc, cod_info);
-    }
-}
-
-
 #ifdef MMX_choose_table
 extern int choose_table_MMX(const int *ix, const int *const end, int *const s);
 #endif
@@ -1356,16 +1341,16 @@ huffman_init(lame_internal_flags * const gfc)
             bv_index = subdv_table[scfb_anz].region0_count;
         }
 
-        gfc->sv_qnt.bv_scf[i - 2] = bv_index;
+        gfc->bv_scf[i - 2] = bv_index;
 
         bv_index = subdv_table[scfb_anz].region1_count;
-        while (gfc->scalefac_band.l[bv_index + gfc->sv_qnt.bv_scf[i - 2] + 2] > i)
+        while (gfc->scalefac_band.l[bv_index + gfc->bv_scf[i - 2] + 2] > i)
             bv_index--;
 
         if (bv_index < 0) {
             bv_index = subdv_table[scfb_anz].region1_count;
         }
 
-        gfc->sv_qnt.bv_scf[i - 1] = bv_index;
+        gfc->bv_scf[i - 1] = bv_index;
     }
 }

@@ -130,26 +130,14 @@
  *  -mf: MPG_MD_MS_LR
  *  -mi: all
  */
-#if 0
+
 #define MPG_MD_LR_LR  0
 #define MPG_MD_LR_I   1
 #define MPG_MD_MS_LR  2
 #define MPG_MD_MS_I   3
-#endif
-enum MPEGChannelMode
-{   MPG_MD_LR_LR = 0
-,   MPG_MD_LR_I  = 1
-,   MPG_MD_MS_LR = 2
-,   MPG_MD_MS_I  = 3
-};
 
-#ifndef lame_internal_flags_defined
-#define lame_internal_flags_defined
-struct lame_internal_flags;
-typedef struct lame_internal_flags lame_internal_flags;
-#endif
 
-int     lame_encode_mp3_frame(lame_internal_flags * gfc,
+int     lame_encode_mp3_frame(lame_global_flags * const gfp,
                               sample_t const *inbuf_l,
                               sample_t const *inbuf_r, unsigned char *mp3buf, int mp3buf_size);
 

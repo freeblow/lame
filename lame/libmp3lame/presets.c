@@ -36,11 +36,6 @@
     else if (!(fabs(lame_get_##opt(gfp) - def) > 0)) \
     (void) lame_set_##opt(gfp, val);
 
-#define SET__OPTION(opt, val, def) if (enforce) \
-    lame_set_##opt(gfp, val); \
-    else if (!(fabs(lame_get_##opt(gfp) - def) > 0)) \
-    lame_set_##opt(gfp, val);
-
 #undef Min
 #undef Max
 
@@ -118,7 +113,7 @@ typedef struct {
     /* *INDENT-ON* */
 
 #define NOOP(m) (void)p.m
-#define LERP(m) (p.m = p.m + x * (q.m - p.m))
+#define LERP(m) p.m = p.m + x * (q.m - p.m)
 
 static void
 apply_vbr_preset(lame_global_flags * gfp, int a, int enforce)
@@ -143,7 +138,7 @@ apply_vbr_preset(lame_global_flags * gfp, int a, int enforce)
     LERP(ath_sensitivity);
     LERP(interch);
     NOOP(safejoint);
-    LERP(sfb21mod);
+    NOOP(sfb21mod);
     LERP(msfix);
 
     (void) lame_set_VBR_q(gfp, set->vbr_q);
@@ -170,7 +165,7 @@ apply_vbr_preset(lame_global_flags * gfp, int a, int enforce)
     if (set->sfb21mod > 0) {
         (void) lame_set_exp_nspsytune(gfp, lame_get_exp_nspsytune(gfp) | (set->sfb21mod << 20));
     }
-    SET__OPTION(msfix, set->msfix, -1);
+    SET_OPTION(msfix, set->msfix, -1);
 
     if (enforce == 0) {
         gfp->VBR_q = a;
@@ -264,7 +259,7 @@ apply_abr_preset(lame_global_flags * gfp, int preset, int enforce)
     SET_OPTION(quant_comp, abr_switch_map[r].quant_comp, -1);
     SET_OPTION(quant_comp_short, abr_switch_map[r].quant_comp_s, -1);
 
-    SET__OPTION(msfix, abr_switch_map[r].nsmsfix, -1);
+    SET_OPTION(msfix, abr_switch_map[r].nsmsfix, -1);
 
     SET_OPTION(short_threshold_lrm, abr_switch_map[r].st_lrm, -1);
     SET_OPTION(short_threshold_s, abr_switch_map[r].st_s, -1);
@@ -287,7 +282,6 @@ apply_abr_preset(lame_global_flags * gfp, int preset, int enforce)
 
     SET_OPTION(interChRatio, abr_switch_map[r].interch, -1);
 
-    (void) abr_switch_map[r].abr_kbps;
 
     return preset;
 }

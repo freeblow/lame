@@ -76,10 +76,10 @@ char   *strchr(), *strrchr();
 #include <errno.h>
 #endif
 
-#if defined _ALLOW_INTERNAL_OPTIONS
+#if defined DEBUG || _DEBUG || _ALLOW_INTERNAL_OPTIONS
 #define INTERNAL_OPTS 1
 #else
-#define INTERNAL_OPTS 0
+#define INTERNAL_OPTS LAME_ALPHA_VERSION
 #endif
 
 #if (INTERNAL_OPTS!=0)
@@ -797,11 +797,14 @@ long_help(const lame_global_flags * gfp, FILE * const fp, const char *ProgramNam
 /** OBSOLETE "    --athaa-loudapprox n   n=1 total energy or n=2 equal loudness curve\n"*/
                      "    --athaa-sensitivity x  activation offset in -/+ dB for ATH auto-adjustment\n"
                      "\n");
+        )
         fprintf(fp,
                 "  PSY related:\n"
+                DEV_HELP(
                 "    --short         use short blocks when appropriate\n"
                 "    --noshort       do not use short blocks\n"
                 "    --allshort      use only short blocks\n"
+                )
         );
     fprintf(fp,
             "    --temporal-masking x   x=0 disables, x=1 enables temporal masking effect\n"
@@ -813,21 +816,22 @@ long_help(const lame_global_flags * gfp, FILE * const fp, const char *ProgramNam
             "    --ns-treble x   adjust masking for sfbs 14 - 21 (long) 11 - 12 (short)\n");
     fprintf(fp,
             "    --ns-sfb21 x    change ns-treble by x dB for sfb21\n"
-            "    --shortthreshold x,y  short block switching threshold,\n"
-            "                          x for L/R/M channel, y for S channel\n"
-            "  Noise Shaping related:\n"
-            "    --substep n     use pseudo substep noise shaping method types 0-2\n"
+            DEV_HELP("    --shortthreshold x,y  short block switching threshold,\n"
+                     "                          x for L/R/M channel, y for S channel\n"
+                     "  Noise Shaping related:\n"
+                     "    --substep n     use pseudo substep noise shaping method types 0-2\n")
         );
 
     wait_for(fp, lessmode);
-            )
 
     fprintf(fp,
             "  experimental switches:\n"
-            "    -Y              lets LAME ignore noise in sfb21, like in CBR\n"
             DEV_HELP(
             "    -X n[,m]        selects between different noise measurements\n"
             "                    n for long block, m for short. if m is omitted, m = n\n"
+            )
+            "    -Y              lets LAME ignore noise in sfb21, like in CBR\n"
+            DEV_HELP(
             "    -Z [n]          currently no effects\n"
             )
             );
@@ -1293,186 +1297,6 @@ resample_rate(double freq)
     }
 }
 
-#ifdef _WIN32
-#define SLASH '\\'
-#elif __OS2__
-#define SLASH '\\'
-#else
-#define SLASH '/'
-#endif
-
-static
-size_t scanPath(char const* s, char const** a, char const** b)
-{
-    char const* s1 = s;
-    char const* s2 = s;
-    if (s != 0) {
-        for (; *s; ++s) {
-            switch (*s) {
-            case SLASH:
-            case ':':
-                s2 = s;
-                break;
-            }
-        }
-        if (*s2 == ':') {
-            ++s2;
-        }
-    }
-    if (a) {
-        *a = s1;
-    }
-    if (b) {
-        *b = s2;
-    }
-    return s2-s1;
-}
-
-static
-size_t scanBasename(char const* s, char const** a, char const** b)
-{
-    char const* s1 = s;
-    char const* s2 = s;
-    if (s != 0) {
-        for (; *s; ++s) {
-            switch (*s) {
-            case SLASH:
-            case ':':
-                s1 = s2 = s;
-                break;
-            case '.':
-                s2 = s;
-                break;
-            }
-        }
-        if (s2 == s1) {
-            s2 = s;
-        }
-        if (*s1 == SLASH || *s1 == ':') {
-            ++s1;
-        }
-    }
-    if (a != 0) {
-        *a = s1;
-    }
-    if (b != 0) {
-        *b = s2;
-    }
-    return s2-s1;
-}
-
-static 
-int isCommonSuffix(char const* s_ext)
-{
-    char* suffixes[] = 
-    { ".WAV", ".RAW", ".MP1", ".MP2"
-    , ".MP3", ".MPG", ".MPA", ".CDA"
-    , ".OGG", ".AIF", ".AIFF", ".AU"
-    , ".SND", ".FLAC", ".WV", ".OFR"
-    , ".TAK", ".MP4", ".M4A", ".PCM"
-    };
-    size_t i;
-    for (i = 0; i < sizeof(suffixes); ++i) {
-        if (local_strcasecmp(s_ext, suffixes[i]) == 0) {
-            return 1;
-        }
-    }
-    return 0;
-}
-
-
-static 
-int generateOutPath(lame_t gfp, char const* inPath, char const* outDir, char* outPath)
-{
-    size_t const max_path = PATH_MAX;
-    char const* s_ext = lame_get_decode_only(gfp) ? ".wav" : ".mp3";
-#if 1
-    size_t i = 0;
-    int out_dir_used = 0;
-
-    if (outDir != 0 && outDir[0] != 0) {
-        out_dir_used = 1;
-        while (*outDir) {
-            outPath[i++] = *outDir++;
-            if (i >= max_path) {
-                goto err_generateOutPath;
-            }
-        }
-        if (i > 0 && outPath[i-1] != SLASH) {
-            outPath[i++] = SLASH;
-            if (i >= max_path) {
-                goto err_generateOutPath;
-            }
-        }
-        outPath[i] = 0;
-    }
-    else {
-        char const* pa;
-        char const* pb;
-        size_t j, n = scanPath(inPath, &pa, &pb);
-        if (i+n >= max_path) {
-            goto err_generateOutPath;
-        }
-        for (j = 0; j < n; ++j) {
-            outPath[i++] = pa[j];
-        }
-        if (n > 0) {
-            outPath[i++] = SLASH;
-            if (i >= max_path) {
-                goto err_generateOutPath;
-            }
-        }
-        outPath[i] = 0;
-    }
-    {
-        int replace_suffix = 0;
-        char const* na;
-        char const* nb;
-        size_t j, n = scanBasename(inPath, &na, &nb);
-        if (i+n >= max_path) {
-            goto err_generateOutPath;
-        }
-        for (j = 0; j < n; ++j) {
-            outPath[i++] = na[j];
-        }
-        outPath[i] = 0;
-        if (isCommonSuffix(nb) == 1) {
-            replace_suffix = 1;
-            if (out_dir_used == 0) {
-                if (local_strcasecmp(nb, s_ext) == 0) {
-                    replace_suffix = 0;
-                }
-            }
-        }
-        if (replace_suffix == 0) {
-            while (*nb) {
-                outPath[i++] = *nb++;
-                if (i >= max_path) {
-                    goto err_generateOutPath;
-                }
-            }
-            outPath[i] = 0;
-        }
-    }
-    if (i+5 >= max_path) {
-        goto err_generateOutPath;
-    }
-    while (*s_ext) {
-        outPath[i++] = *s_ext++;
-    }
-    outPath[i] = 0;
-    return 0;
-err_generateOutPath:
-    error_printf( "error: output file name too long" );
-    return 1;
-#else
-    strncpy(outPath, inPath, PATH_MAX + 1 - 4);
-    strncat(outPath, s_ext, 4);
-    return 0;
-#endif
-}
-
-
 enum ID3TAG_MODE 
 { ID3TAG_MODE_DEFAULT
 , ID3TAG_MODE_V1_ONLY
@@ -1492,7 +1316,6 @@ int
 parse_args(lame_global_flags * gfp, int argc, char **argv,
            char *const inPath, char *const outPath, char **nogap_inPath, int *num_nogap)
 {
-    char    outDir[1024] = "";
     int     input_file = 0;  /* set to 1 if we parse an input file name  */
     int     i;
     int     autoconvert = 0;
@@ -1599,6 +1422,16 @@ parse_args(lame_global_flags * gfp, int argc, char **argv,
                 T_ELIF("ogginput")
                     error_printf("sorry, vorbis support in LAME is deprecated.\n");
                 return -1;
+
+                T_ELIF("phone")
+                    if (presets_set(gfp, 0, 0, token, ProgramName) < 0)
+                    return -1;
+                error_printf("Warning: --phone is deprecated, use --preset phone instead!");
+
+                T_ELIF("voice")
+                    if (presets_set(gfp, 0, 0, token, ProgramName) < 0)
+                    return -1;
+                error_printf("Warning: --voice is deprecated, use --preset voice instead!");
 
                 T_ELIF_INTERNAL("noshort")
                     (void) lame_set_no_short_blocks(gfp, 1);
@@ -1930,28 +1763,28 @@ parse_args(lame_global_flags * gfp, int argc, char **argv,
                 }
                 lame_set_compression_ratio(gfp, (float) val);
 
-                T_ELIF_INTERNAL("notemp")
+                T_ELIF("notemp")
                     (void) lame_set_useTemporal(gfp, 0);
 
-                T_ELIF_INTERNAL("interch")
+                T_ELIF("interch")
                     argUsed = 1;
                 (void) lame_set_interChRatio(gfp, (float) atof(nextArg));
 
-                T_ELIF_INTERNAL("temporal-masking")
+                T_ELIF("temporal-masking")
                     argUsed = 1;
                 (void) lame_set_useTemporal(gfp, atoi(nextArg) ? 1 : 0);
 
-                T_ELIF_INTERNAL("nspsytune")
+                T_ELIF("nspsytune")
                     ;
 
-                T_ELIF_INTERNAL("nssafejoint")
+                T_ELIF("nssafejoint")
                     lame_set_exp_nspsytune(gfp, lame_get_exp_nspsytune(gfp) | 2);
 
-                T_ELIF_INTERNAL("nsmsfix")
+                T_ELIF("nsmsfix")
                     argUsed = 1;
                 (void) lame_set_msfix(gfp, atof(nextArg));
 
-                T_ELIF_INTERNAL("ns-bass")
+                T_ELIF("ns-bass")
                     argUsed = 1;
                 {
                     double  d;
@@ -1967,7 +1800,7 @@ parse_args(lame_global_flags * gfp, int argc, char **argv,
                     lame_set_exp_nspsytune(gfp, lame_get_exp_nspsytune(gfp) | (k << 2));
                 }
 
-                T_ELIF_INTERNAL("ns-alto")
+                T_ELIF("ns-alto")
                     argUsed = 1;
                 {
                     double  d;
@@ -1983,7 +1816,7 @@ parse_args(lame_global_flags * gfp, int argc, char **argv,
                     lame_set_exp_nspsytune(gfp, lame_get_exp_nspsytune(gfp) | (k << 8));
                 }
 
-                T_ELIF_INTERNAL("ns-treble")
+                T_ELIF("ns-treble")
                     argUsed = 1;
                 {
                     double  d;
@@ -1999,7 +1832,7 @@ parse_args(lame_global_flags * gfp, int argc, char **argv,
                     lame_set_exp_nspsytune(gfp, lame_get_exp_nspsytune(gfp) | (k << 14));
                 }
 
-                T_ELIF_INTERNAL("ns-sfb21")
+                T_ELIF("ns-sfb21")
                     /*  to be compatible with Naoki's original code,
                      *  ns-sfb21 specifies how to change ns-treble for sfb21 */
                     argUsed = 1;
@@ -2017,6 +1850,9 @@ parse_args(lame_global_flags * gfp, int argc, char **argv,
                     lame_set_exp_nspsytune(gfp, lame_get_exp_nspsytune(gfp) | (k << 20));
                 }
 
+                T_ELIF("nspsytune2") {
+                }
+
                 /* some more GNU-ish options could be added
                  * brief         => few messages on screen (name, status report)
                  * o/output file => specifies output filename
@@ -2032,7 +1868,7 @@ parse_args(lame_global_flags * gfp, int argc, char **argv,
 
                 T_ELIF("verbose")
                     silent = -10; /* print a lot on screen */
-                
+
                 T_ELIF2("version", "license")
                     print_license(stdout);
                 return -2;
@@ -2083,13 +1919,7 @@ parse_args(lame_global_flags * gfp, int argc, char **argv,
                     nogap_tags = 1;
 
                 T_ELIF("nogapout")
-                    /* FIXME: replace strcpy by safer strncpy */
                     strcpy(outPath, nextArg);
-                argUsed = 1;
-
-                T_ELIF("out-dir")
-                    /* FIXME: replace strcpy by safer strncpy */
-                    strcpy(outDir, nextArg);
                 argUsed = 1;
 
                 T_ELIF("nogap")
@@ -2428,8 +2258,12 @@ parse_args(lame_global_flags * gfp, int argc, char **argv,
             strcpy(outPath, "-");
         }
         else {
-            if (generateOutPath(gfp, inPath, outDir, outPath) != 0) {
-                return -1;
+            strncpy(outPath, inPath, PATH_MAX + 1 - 4);
+            if (lame_get_decode_only(gfp)) {
+                strncat(outPath, ".wav", 4);
+            }
+            else {
+                strncat(outPath, ".mp3", 4);
             }
         }
     }
@@ -2459,6 +2293,28 @@ parse_args(lame_global_flags * gfp, int argc, char **argv,
         return -1;
     }
 #endif
+
+
+    if (is_mpeg_file_format(input_format) && print_clipping_info) {
+
+        error_printf("\nError: input cannot be MPEG when --clipdetect is used\n"
+                     "\n--clipdetect requires decoding of MPEG *output* on the fly which\n"
+                     "cannot be performed simultaneously with decoding MPEG *input*.\n"
+                     "\nUse a plain .wav file as input with --clipdetect.\n");
+
+        return -1;
+    }
+
+
+    if (is_mpeg_file_format(input_format) && lame_get_decode_on_the_fly(gfp)) {
+
+        error_printf("\nError: input cannot be MPEG when --replaygain-accurate is used\n"
+                     "\n--replaygain-accurate requires decoding of MPEG *output* on the fly which\n"
+                     "cannot be performed simultaneously with decoding MPEG *input*.\n"
+                     "\nUse a plain .wav file as input with --replaygain-accurate.\n");
+
+        return -1;
+    }
 
 
     if (input_format == sf_ogg) {
