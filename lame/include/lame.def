@@ -263,7 +263,6 @@ hip_decode1		@1104
 hip_decode1_headers	@1105
 hip_decode1_headersB	@1106
 
-
 id3tag_genre_list	@2000
 id3tag_init   		@2001
 id3tag_add_v2   	@2002

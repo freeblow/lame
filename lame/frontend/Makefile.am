@@ -9,8 +9,9 @@ brhist_sources = brhist.c brhist.h
 
 EXTRA_DIST = \
 	$(brhist_sources) \
+	lame_vc6.dsp \
 	lame_vc8.vcproj \
-	mp3x_vc8.vcproj \
+	mp3x_vc6.dsp \
 	amiga_mpega.c
 
 DEFS = @DEFS@ @CONFIG_DEFS@
@@ -51,7 +52,7 @@ mp3x_SOURCES = mp3x.c gtkanal.c gpkplotting.c $(common_sources)
 endif
 
 CFLAGS = @CFLAGS@ @GTK_CFLAGS@ @FRONTEND_CFLAGS@ @SNDFILE_CFLAGS@
-LDFLAGS = @LDFLAGS@ @FRONTEND_LDFLAGS@ @SNDFILE_LIBS@
+LDFLAGS = @LDFLAGS@ @FRONTEND_LDFLAGS@ @SNDFILE_LIBS@ -static
 
 INCLUDES = -I$(top_srcdir)/libmp3lame -I$(top_srcdir)/include -I$(top_builddir)
 

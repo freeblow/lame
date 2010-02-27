@@ -1,2 +1,3 @@
 version=3
-http://sf.net/lame/lame-(.*).tar.gz
+
+http://sf.net/lame/lame-([\d.]*).tar.gz

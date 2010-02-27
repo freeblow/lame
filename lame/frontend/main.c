@@ -110,7 +110,7 @@ parse_args_from_string(lame_global_flags * const gfp, const char *p, char *inPat
     strcpy(q, p);
 
     r[c++] = "lhama";
-    for (;;) {
+    while (1) {
         r[c++] = q;
         while (*q != ' ' && *q != '\0')
             q++;
@@ -178,13 +178,13 @@ lame_decoder(lame_global_flags * gfp, FILE * outf, int skip_start, char *inPath,
     int     iread;
     int     skip_end = 0;
     double  wavsize;
-    int     i, ch0, ch1;
+    int     i;
     void    (*WriteFunction) (FILE * fp, char *p, int n);
     int     tmp_num_channels = lame_get_num_channels(gfp);
 
 
 
-    if (silent < 9)
+    if (silent < 10)
         console_printf("\rinput:  %s%s(%g kHz, %i channel%s, ",
                        strcmp(inPath, "-") ? inPath : "<stdin>",
                        strlen(inPath) > 26 ? "\n\t" : "  ",
@@ -212,45 +212,45 @@ lame_decoder(lame_global_flags * gfp, FILE * outf, int skip_start, char *inPath,
             skip_start += 528 + 1; /* mp3 decoder has a 528 sample delay, plus user supplied "skip" */
         }
 
-        if (silent < 9)
+        if (silent < 10)
             console_printf("MPEG-%u%s Layer %s", 2 - lame_get_version(gfp),
                            lame_get_out_samplerate(gfp) < 16000 ? ".5" : "", "III");
         break;
     case sf_mp2:
         skip_start += 240 + 1;
-        if (silent < 9)
+        if (silent < 10)
             console_printf("MPEG-%u%s Layer %s", 2 - lame_get_version(gfp),
                            lame_get_out_samplerate(gfp) < 16000 ? ".5" : "", "II");
         break;
     case sf_mp1:
         skip_start += 240 + 1;
-        if (silent < 9)
+        if (silent < 10)
             console_printf("MPEG-%u%s Layer %s", 2 - lame_get_version(gfp),
                            lame_get_out_samplerate(gfp) < 16000 ? ".5" : "", "I");
         break;
     case sf_raw:
-        if (silent < 9)
+        if (silent < 10)
             console_printf("raw PCM data");
         mp3input_data.nsamp = lame_get_num_samples(gfp);
         mp3input_data.framesize = 1152;
         skip_start = 0; /* other formats have no delay */ /* is += 0 not better ??? */
         break;
     case sf_wave:
-        if (silent < 9)
+        if (silent < 10)
             console_printf("Microsoft WAVE");
         mp3input_data.nsamp = lame_get_num_samples(gfp);
         mp3input_data.framesize = 1152;
         skip_start = 0; /* other formats have no delay */ /* is += 0 not better ??? */
         break;
     case sf_aiff:
-        if (silent < 9)
+        if (silent < 10)
             console_printf("SGI/Apple AIFF");
         mp3input_data.nsamp = lame_get_num_samples(gfp);
         mp3input_data.framesize = 1152;
         skip_start = 0; /* other formats have no delay */ /* is += 0 not better ??? */
         break;
     default:
-        if (silent < 9)
+        if (silent < 10)
             console_printf("unknown");
         mp3input_data.nsamp = lame_get_num_samples(gfp);
         mp3input_data.framesize = 1152;
@@ -259,7 +259,7 @@ lame_decoder(lame_global_flags * gfp, FILE * outf, int skip_start, char *inPath,
         break;
     }
 
-    if (silent < 9) {
+    if (silent < 10) {
         console_printf(")\noutput: %s%s(16 bit, Microsoft WAVE)\n",
                        strcmp(outPath, "-") ? outPath : "<stdout>",
                        strlen(outPath) > 45 ? "\n\t" : "  ");
@@ -280,12 +280,6 @@ lame_decoder(lame_global_flags * gfp, FILE * outf, int skip_start, char *inPath,
 
     assert(tmp_num_channels >= 1 && tmp_num_channels <= 2);
 
-    ch0 = 0;
-    ch1 = 1;
-    if (tmp_num_channels == 2 && swap_channel == 1) {
-        ch0 = 1;
-        ch1 = 0;
-    }
     do {
         iread = get_audio16(gfp, Buffer); /* read in 'iread' samples */
         if (iread >= 0) {
@@ -308,14 +302,14 @@ lame_decoder(lame_global_flags * gfp, FILE * outf, int skip_start, char *inPath,
 
             for (; i < iread; i++) {
                 if (disable_wav_header) {
-                    WriteFunction(outf, (char *) &Buffer[ch0][i], sizeof(short));
+                    WriteFunction(outf, (char *) &Buffer[0][i], sizeof(short));
                     if (tmp_num_channels == 2)
-                        WriteFunction(outf, (char *) &Buffer[ch1][i], sizeof(short));
+                        WriteFunction(outf, (char *) &Buffer[1][i], sizeof(short));
                 }
                 else {
-                    Write16BitsLowHigh(outf, Buffer[ch0][i]);
+                    Write16BitsLowHigh(outf, Buffer[0][i]);
                     if (tmp_num_channels == 2)
-                        Write16BitsLowHigh(outf, Buffer[ch1][i]);
+                        Write16BitsLowHigh(outf, Buffer[1][i]);
                 }
             }
             if (flush_write == 1) {
@@ -342,9 +336,9 @@ lame_decoder(lame_global_flags * gfp, FILE * outf, int skip_start, char *inPath,
 
     /* if outf is seekable, rewind and adjust length */
     if (!disable_wav_header && strcmp("-", outPath)
-        && !fseek(outf, 0l, SEEK_SET))
-        WriteWaveHeader(outf, (int) wavsize, lame_get_in_samplerate(gfp),
-                        tmp_num_channels, 16);
+	&& !fseek(outf, 0l, SEEK_SET))
+	WriteWaveHeader(outf, (int) wavsize, lame_get_in_samplerate(gfp),
+			tmp_num_channels, 16);
     fclose(outf);
 
     if (silent <= 0)
@@ -456,7 +450,6 @@ lame_encoder(lame_global_flags * gf, FILE * outf, int nogap, char *inPath, char 
     unsigned char mp3buffer[LAME_MAXMP3BUFFER];
     int     Buffer[2][1152];
     int     iread, imp3, owrite, id3v2_size;
-    int     num_channels, ch0, ch1;
 
     encoder_progress_begin(gf, inPath, outPath);
 
@@ -480,13 +473,6 @@ lame_encoder(lame_global_flags * gf, FILE * outf, int nogap, char *inPath, char 
     }    
     id3v2_size = imp3;
     
-    num_channels = lame_get_num_channels(gf);
-    ch0 = 0;
-    ch1 = 1;
-    if (num_channels == 2 && swap_channel) {
-        ch0 = 1;
-        ch1 = 0;
-    }
     /* encode until we hit eof */
     do {
         /* read in 'iread' samples */
@@ -496,7 +482,7 @@ lame_encoder(lame_global_flags * gf, FILE * outf, int nogap, char *inPath, char 
             encoder_progress(gf);
 
             /* encode */
-            imp3 = lame_encode_buffer_int(gf, Buffer[ch0], Buffer[ch1], iread,
+            imp3 = lame_encode_buffer_int(gf, Buffer[0], Buffer[1], iread,
                                           mp3buffer, sizeof(mp3buffer));
 
             /* was our output buffer big enough? */
@@ -611,7 +597,6 @@ parse_nogap_filenames(int nogapout, char *inPath, char *outPath, char *outdir)
     char   *slasher;
     size_t  n;
 
-    /* FIXME: replace strcpy by safer strncpy */
     strcpy(outPath, outdir);
     if (!nogapout) {
         strncpy(outPath, inPath, PATH_MAX + 1 - 4);
@@ -649,13 +634,12 @@ parse_nogap_filenames(int nogapout, char *inPath, char *outPath, char *outdir)
                  && (outPath[strlen(outPath) - 1] != '/'
                      &&
                      outPath[strlen(outPath) - 1] != '\\' && outPath[strlen(outPath) - 1] != ':'))
-            /* FIXME: replace strcat by safer strncat */
 #ifdef _WIN32
-            strncat(outPath, "\\", PATH_MAX + 1 - 4);
+            strcat(outPath, "\\");
 #elif __OS2__
-            strncat(outPath, "\\", PATH_MAX + 1 - 4);
+            strcat(outPath, "\\");
 #else
-            strncat(outPath, "/", PATH_MAX + 1 - 4);
+            strcat(outPath, "/");
 #endif
 
         strncat(outPath, slasher, PATH_MAX + 1 - 4);
@@ -755,9 +739,9 @@ main(int argc, char **argv)
         frontend_close_console();
         return 1;
     }
-    lame_set_msgf  (gf, silent < 10 ? &frontend_msgf   : 0);
-    lame_set_errorf(gf, silent < 10 ? &frontend_errorf : 0);
+    lame_set_errorf(gf, &frontend_errorf);
     lame_set_debugf(gf, &frontend_debugf);
+    lame_set_msgf(gf, &frontend_msgf);
     if (argc <= 1) {
         usage(stderr, argv[0]); /* no command-line args, print usage, exit  */
         lame_close(gf);

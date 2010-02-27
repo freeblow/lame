@@ -9,7 +9,11 @@ EXTRA_DIST = \
 	makedistlinux \
 	makedistwin.bat \
 	readme.txt \
+	test.dsp \
+	test.dsw \
 	tinyxml.cpp \
+	tinyxml.dsp \
+	tinyxml_vc7.vcproj \
 	tinyxml.h \
 	tinyxmlerror.cpp \
 	tinyxmlparser.cpp \

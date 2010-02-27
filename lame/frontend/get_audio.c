@@ -1,7 +1,7 @@
 /*
- *      Get Audio routines source file
+ *	Get Audio routines source file
  *
- *      Copyright (c) 1999 Albert L Faber
+ *	Copyright (c) 1999 Albert L Faber
  *
  * This library is free software; you can redistribute it and/or
  * modify it under the terms of the GNU Lesser General Public
@@ -10,7 +10,7 @@
  *
  * This library is distributed in the hope that it will be useful,
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.	 See the GNU
  * Library General Public License for more details.
  *
  * You should have received a copy of the GNU Lesser General Public
@@ -75,7 +75,7 @@ char   *strchr(), *strrchr();
 
 
 /* global data for get_audio.c. */
-typedef struct get_audio_global_data_struct {
+typedef struct get_audio_global_data {
     int     count_samples_carefully;
     int     pcmbitwidth;
     int     pcmswapbytes;
@@ -143,7 +143,7 @@ fskip(FILE * fp, long offset, int whence)
 #ifndef S_ISFIFO
 # ifdef _S_IFIFO
     /* _S_IFIFO is defined on Win32 and Cygwin */
-#  define S_ISFIFO(m) (((m)&_S_IFIFO) == _S_IFIFO)
+#  define	S_ISFIFO(m)	(((m)&_S_IFIFO) == _S_IFIFO)
 # endif
 #endif
 
@@ -546,7 +546,7 @@ WriteWaveHeader(FILE * const fp, const int pcmbytes,
  *
  * This library is distributed in the hope that it will be useful,
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.	 See the GNU
  * Library General Public License for more details.
  *
  * You should have received a copy of the GNU Library General Public
@@ -931,7 +931,7 @@ unpack_read_samples(const int samples_to_read, const int bytes_per_sample,
 
 #define GA_URS_IFLOOP( ga_urs_bps ) \
     if( bytes_per_sample == ga_urs_bps ) \
-      for( i = samples_read * bytes_per_sample; (i -= bytes_per_sample) >=0;)
+	for( i = samples_read * bytes_per_sample; (i -= bytes_per_sample) >=0;)
 
     samples_read = fread(sample_buffer, bytes_per_sample, samples_to_read, pcm_in);
     op = sample_buffer + samples_read;
@@ -1269,11 +1269,11 @@ parse_aiff_header(lame_global_flags * gfp, FILE * sf)
             ckSize = make_even_number_of_bytes_in_length(subSize);
             chunkSize -= ckSize;
 
-            aiff_info.numChannels = (short) Read16BitsHighLow(sf);
+            aiff_info.numChannels = Read16BitsHighLow(sf);
             ckSize -= 2;
             aiff_info.numSampleFrames = Read32BitsHighLow(sf);
             ckSize -= 4;
-            aiff_info.sampleSize = (short) Read16BitsHighLow(sf);
+            aiff_info.sampleSize = Read16BitsHighLow(sf);
             ckSize -= 2;
             aiff_info.sampleRate = ReadIeeeExtendedHighLow(sf);
             ckSize -= 10;
@@ -1501,7 +1501,7 @@ OpenSndFile(lame_global_flags * gfp, char *inPath, int *enc_delay, int *enc_padd
     }
     else if (input_format == sf_raw) {
         /* assume raw PCM */
-        if (silent < 9) {
+        if (silent < 10) {
             console_printf("Assuming raw pcm input file");
             if (swapbytes)
                 console_printf(" : Forcing byte-swapping\n");
@@ -1629,15 +1629,12 @@ lame_decode_initfile(FILE * fd, mp3data_struct * mp3data, int *enc_delay, int *e
         hip_decode_exit(global.hip);
     }
     global.hip = hip_decode_init();
-    hip_set_msgf  (global.hip, silent < 10 ? &frontend_msgf   : 0);
-    hip_set_errorf(global.hip, silent < 10 ? &frontend_errorf : 0);
-    hip_set_debugf(global.hip, &frontend_debugf);
 
     len = 4;
     if (fread(buf, 1, len, fd) != len)
         return -1;      /* failed */
     if (buf[0] == 'I' && buf[1] == 'D' && buf[2] == '3') {
-        if (silent < 9) {
+        if (silent < 10) {
             console_printf("ID3v2 found. "
                            "Be aware that the ID3 tag is currently lost when transcoding.\n");
         }
@@ -1659,7 +1656,7 @@ lame_decode_initfile(FILE * fd, mp3data_struct * mp3data, int *enc_delay, int *e
         if (fread(&buf, 1, 2, fd) != 2)
             return -1;  /* failed */
         aid_header = (unsigned char) buf[0] + 256 * (unsigned char) buf[1];
-        if (silent < 9) {
+        if (silent < 10) {
             console_printf("Album ID found.  length=%i \n", aid_header);
         }
         /* skip rest of AID, except for 6 bytes we have already read */
@@ -1679,7 +1676,7 @@ lame_decode_initfile(FILE * fd, mp3data_struct * mp3data, int *enc_delay, int *e
     }
 
     if ((buf[2] & 0xf0) == 0) {
-        if (silent < 9) {
+        if (silent < 10) {
             console_printf("Input file is freeformat.\n");
         }
         freeformat = 1;
@@ -1761,7 +1758,7 @@ lame_decode_fromfile(FILE * fd, short pcm_l[], short pcm_r[], mp3data_struct * m
 
 
     /* read until we get a valid output frame */
-    for (;;) {
+    while (1) {
         len = fread(buf, 1, 1024, fd);
         if (len == 0) {
             /* we are done reading the file, but check for buffered data */

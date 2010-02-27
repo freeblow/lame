@@ -56,7 +56,7 @@
 #include <dmalloc.h>
 #endif
 
-typedef struct time_status_struct {
+typedef struct {
     double  last_time;       /* result of last call to clock */
     double  elapsed_time;    /* total time */
     double  estimated_time;  /* estimated total duration time [s] */
@@ -195,7 +195,7 @@ encoder_progress_begin( lame_global_flags const* gf
                       , char              const* outPath
                       )
 {
-    if (silent < 9) {
+    if (silent < 10) {
         lame_print_config(gf); /* print useful information about options being used */
 
         console_printf("Encoding %s%s to %s\n",

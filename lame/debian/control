@@ -4,12 +4,12 @@ Priority: optional
 Maintainer: Rogério Brito <rbrito@users.sf.net>
 Bugs: mailto:lame-dev@lists.sourceforge.net
 Homepage: http://lame.sourceforge.net/
-Build-Depends: debhelper (>= 7), libncurses5-dev, nasm [i386], libsndfile1-dev, autotools-dev
-Standards-Version: 3.8.0
+Build-Depends: debhelper (>= 5), libncurses5-dev, nasm [i386], libsndfile1-dev
+Standards-Version: 3.7.3
 
 Package: lame
 Architecture: any
-Depends: ${shlibs:Depends}
+Depends: ${shlibs:Depends}, ${misc:Depends}
 Description: open source MP3 encoder
  Lame is a program which can be used to create compressed
  audio files. (Lame aint MP3 encoder). These audio files
@@ -22,7 +22,9 @@ Description: open source MP3 encoder
 Package: libmp3lame0
 Architecture: any
 Section: libs
-Depends: ${shlibs:Depends}
+Conflicts: liblame0
+Replaces: liblame0
+Depends: ${shlibs:Depends}, ${misc:Depends}
 Description: shared libraries for MP3 encoding
  Lame is a program which can be used to create compressed
  audio files. (Lame aint MP3 encoder). These audio files
@@ -32,10 +34,10 @@ Description: shared libraries for MP3 encoding
  .
  This package contains the dynamic library.
 
-Package: libmp3lame-dev
+Package: libmp3lame0-dev
 Architecture: any
 Section: libdevel
-Depends: libmp3lame0 (= ${binary:Version})
+Depends: libmp3lame0 (= ${binary:Version}), ${misc:Depends}
 Conflicts: liblame-dev
 Replaces: liblame-dev
 Description: development files for lame

@@ -19,8 +19,6 @@
 #ifndef _MPGLIB_H_
 #define _MPGLIB_H_
 
-#include "lame.h"
-
 #ifndef plotting_data_defined
 #define plotting_data_defined
 struct plotting_data;
@@ -28,7 +26,7 @@ typedef struct plotting_data plotting_data;
 #endif
 
 
-extern void lame_report_fnc(lame_report_function f, const char *format, ...);
+
 
 struct buf {
     unsigned char *pnt;
@@ -77,10 +75,6 @@ typedef struct mpstr_tag {
     int     bitindex;
     unsigned char *wordpointer;
     plotting_data *pinfo;
-
-    lame_report_function report_msg;
-    lame_report_function report_dbg;
-    lame_report_function report_err;
 } MPSTR, *PMPSTR;
 
 

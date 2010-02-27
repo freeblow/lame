@@ -46,6 +46,9 @@
 /* enable VBR bitrate histogram */
 #define BRHIST 1
 
+/* IEEE754 compatible machine */
+#define TAKEHIRO_IEEE754_HACK 1
+
 /* faster log implementation with less but enough precission */
 #define USE_FAST_LOG 1
 
