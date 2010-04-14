@@ -1,4 +1,4 @@
-.TH lame 1 "July 08, 2008" "LAME 3.99" "LAME audio compressor"
+.TH lame 1 "July 08, 2008" "LAME 3.98" "LAME audio compressor"
 .SH NAME
 lame \- create mp3 audio files
 .SH SYNOPSIS
@@ -412,7 +412,7 @@ disabled in the build of LAME.
 See also:
 .B \-\-replaygain-accurate
 .TP
-.B \-\-preset " type | [cbr] kbps"
+.B \-\-preset " [fast] type | [cbr] kbps"
 Use one of the built-in presets.
 
 Have a look at the PRESETS section below.
@@ -420,7 +420,7 @@ Have a look at the PRESETS section below.
 .B \-\-preset help
 gives more infos about the the used options in these presets.
 .TP
-.B \-\-preset " type | [cbr] kbps"
+.B \-\-preset " [fast] type | [cbr] kbps"
 Use one of the built-in  presets.
 .TP
 .B \-\-noasm " type"
@@ -682,6 +682,27 @@ Without this option,
 the minimum bitrate will be ignored for passages of analog silence,
 i.e. when the music level is below the absolute threshold of
 human hearing (ATH). 
+
+.PP
+PSY related:
+.TP
+.B \-\-nssafejoint
+M/S switching criterion
+.TP
+.BI \-\-nsmsfix " arg"
+M/S switching tuning [effective 0-3.5]
+.TP
+.BI \-\-ns-bass " x"
+Adjust masking for sfbs  0 -  6 (long)  0 -  5 (short)
+.TP
+.BI \-\-ns-alto " x"
+Adjust masking for sfbs  7 - 13 (long)  6 - 10 (short)
+.TP
+.BI \-\-ns-treble " x"
+Adjust masking for sfbs 14 - 21 (long) 11 - 12 (short)
+.TP
+.BI \-\-ns-sfb21 " x"
+Change ns-treble by x dB for sfb21
 
 .PP
 Experimental options:
@@ -999,10 +1020,13 @@ and usually will not attain the same level of quality as VBR at higher bitrates.
 .PP
 The following options are also available for the corresponding profiles:
 .PP
-.B standard|extreme
+.B fast standard|extreme
 .br
 .B cbr " kbps"
 .PP
+.TP
+.B fast
+Enables the new fast VBR for a particular profile.
 .TP
 .B cbr
 If you use the ABR mode (read above) with a significant bitrate such as 80,
@@ -1091,10 +1115,10 @@ with downsampling to 22.05 kHz:
 
 .LP
 Encode with the
-.B standard
+.B fast standard
 preset:
 .IP
-.B lame \-\-preset standard
+.B lame \-\-preset fast standard
 .I sample.wav sample.mp3
 
 .SH BUGS

@@ -19,6 +19,8 @@ EXTRA_DIST = \
 	UIDS.H \
 	aboutprp.cpp \
 	aboutprp.h \
+	dshow.dsp \
+	dshow.dsw \
 	elogo.ico \
 	iaudioprops.h \
 	resource.h

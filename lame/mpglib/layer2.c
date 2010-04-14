@@ -34,17 +34,13 @@
 #ifdef WITH_DMALLOC
 #include <dmalloc.h>
 #endif
-#include <assert.h>
 
-static int gd_are_hip_tables_layer2_initialized = 0;
-
-static unsigned char grp_3tab[32 * 3] = { 0, }; /* used: 27 */
-static unsigned char grp_5tab[128 * 3] = { 0, }; /* used: 125 */
-static unsigned char grp_9tab[1024 * 3] = { 0, }; /* used: 729 */
-
+static int grp_3tab[32 * 3] = { 0, }; /* used: 27 */
+static int grp_5tab[128 * 3] = { 0, }; /* used: 125 */
+static int grp_9tab[1024 * 3] = { 0, }; /* used: 729 */
 
 void
-hip_init_tables_layer2(void)
+init_layer2(void)
 {
     static const double mulmul[27] = {
         0.0, -2.0 / 3.0, 2.0 / 3.0,
@@ -54,7 +50,7 @@ hip_init_tables_layer2(void)
         -4.0 / 5.0, -2.0 / 5.0, 2.0 / 5.0, 4.0 / 5.0,
         -8.0 / 9.0, -4.0 / 9.0, -2.0 / 9.0, 2.0 / 9.0, 4.0 / 9.0, 8.0 / 9.0
     };
-    static const unsigned char base[3][9] = {
+    static const int base[3][9] = {
         {1, 0, 2,},
         {17, 18, 0, 19, 20,},
         {21, 1, 22, 23, 0, 24, 25, 2, 26}
@@ -62,12 +58,7 @@ hip_init_tables_layer2(void)
     int     i, j, k, l, len;
     real   *table;
     static const int tablen[3] = { 3, 5, 9 };
-    static unsigned char *itable, *tables[3] = { grp_3tab, grp_5tab, grp_9tab };
-
-    if (gd_are_hip_tables_layer2_initialized) {
-        return;
-    }
-    gd_are_hip_tables_layer2_initialized = 1;
+    static int *itable, *tables[3] = { grp_3tab, grp_5tab, grp_9tab };
 
     for (i = 0; i < 3; i++) {
         itable = tables[i];
@@ -91,239 +82,170 @@ hip_init_tables_layer2(void)
 }
 
 
-static unsigned char*
-grp_table_select(short d1, unsigned int idx)
-{
-    static unsigned char dummy_table[] = { 0,0,0 };
-    unsigned int x;
-    switch (d1) {
-        case 3:
-            x = 3*3*3;
-            assert(idx <= x);
-            idx = idx < x ? idx : x;
-            return &grp_3tab[3 * idx]; 
-        case 5: 
-            x = 5*5*5;
-            assert(idx <= x);
-            idx = idx < x ? idx : x;
-            return &grp_5tab[3 * idx]; 
-        case 9:
-            x = 9*9*9;
-            assert(idx <= x);
-            idx = idx < x ? idx : x;
-            return &grp_9tab[3 * idx];
-        default:
-            /* fatal error */
-            assert(0);
-    }
-    return &dummy_table[0];
-}
-
-typedef struct sideinfo_layer_II_struct
-{
-    unsigned char allocation[SBLIMIT][2]; 
-    unsigned char scalefactor[SBLIMIT][2][3]; /* subband / channel / block */
-} sideinfo_layer_II;
-
-
-
 static void
-II_step_one(PMPSTR mp, sideinfo_layer_II *si, struct frame *fr)
+II_step_one(PMPSTR mp, unsigned int *bit_alloc, int *scale, struct frame *fr)
 {
-    int     nch = fr->stereo;
+    int     stereo = fr->stereo - 1;
     int     sblimit = fr->II_sblimit;
-    int     jsbound = (fr->mode == MPG_MD_JOINT_STEREO) ? (fr->mode_ext << 2) + 4 : fr->II_sblimit;
+    int     jsbound = fr->jsbound;
+    int     sblimit2 = fr->II_sblimit << stereo;
     struct al_table2 const *alloc1 = fr->alloc;
-    unsigned char scfsi[SBLIMIT][2];
-    int     i, ch;
+    int     i;
+    static unsigned int scfsi_buf[64];
+    unsigned int *scfsi, *bita;
+    int     sc, step;
 
-    memset(si, 0, sizeof(*si));
-
-    if (nch == 2) {
-        for (i = 0; i < jsbound; ++i) {
-            short   step = alloc1->bits;
-            unsigned char b0 = get_leq_8_bits(mp, step);
-            unsigned char b1 = get_leq_8_bits(mp, step);
-            alloc1 += (1 << step);
-            si->allocation[i][0] = b0;
-            si->allocation[i][1] = b1;
+    bita = bit_alloc;
+    if (stereo) {
+        for (i = jsbound; i; i--, alloc1 += (1 << step)) {
+            *bita++ = (char) getbits(mp, step = alloc1->bits);
+            *bita++ = (char) getbits(mp, step);
         }
-        for (i = jsbound; i < sblimit; ++i) {
-            short   step = alloc1->bits;
-            unsigned char b0 = get_leq_8_bits(mp, step);
-            alloc1 += (1 << step);
-            si->allocation[i][0] = b0;
-            si->allocation[i][1] = b0;
+        for (i = sblimit - jsbound; i; i--, alloc1 += (1 << step)) {
+            bita[0] = (char) getbits(mp, step = alloc1->bits);
+            bita[1] = bita[0];
+            bita += 2;
         }
-        for (i = 0; i < sblimit; ++i) {
-            unsigned char n0 = si->allocation[i][0];
-            unsigned char n1 = si->allocation[i][1];
-            unsigned char b0 = n0 ? get_leq_8_bits(mp, 2) : 0;
-            unsigned char b1 = n1 ? get_leq_8_bits(mp, 2) : 0;
-            scfsi[i][0] = b0;
-            scfsi[i][1] = b1;
-        }
+        bita = bit_alloc;
+        scfsi = scfsi_buf;
+        for (i = sblimit2; i; i--)
+            if (*bita++)
+                *scfsi++ = (char) getbits_fast(mp, 2);
     }
     else {              /* mono */
-        for (i = 0; i < sblimit; ++i) {
-            short   step = alloc1->bits;
-            unsigned char b0 = get_leq_8_bits(mp, step);
-            alloc1 += (1 << step);
-            si->allocation[i][0] = b0;
-        }
-        for (i = 0; i < sblimit; ++i) {
-            unsigned char n0 = si->allocation[i][0];
-            unsigned char b0 = n0 ? get_leq_8_bits(mp, 2) : 0;
-            scfsi[i][0] = b0;
-        }
+
+        for (i = sblimit; i; i--, alloc1 += (1 << step))
+            *bita++ = (char) getbits(mp, step = alloc1->bits);
+        bita = bit_alloc;
+        scfsi = scfsi_buf;
+        for (i = sblimit; i; i--)
+            if (*bita++)
+                *scfsi++ = (char) getbits_fast(mp, 2);
     }
-    for (i = 0; i < sblimit; ++i) {
-        for (ch = 0; ch < nch; ++ch) {
-            unsigned char s0 = 0, s1 = 0, s2 = 0;
-            if (si->allocation[i][ch]) {
-                switch (scfsi[i][ch]) {
-                    case 0:
-                        s0 = get_leq_8_bits(mp, 6);
-                        s1 = get_leq_8_bits(mp, 6);
-                        s2 = get_leq_8_bits(mp, 6);
-                        break;
-                    case 1:
-                        s0 = get_leq_8_bits(mp, 6);
-                        s1 = s0;
-                        s2 = get_leq_8_bits(mp, 6);
-                        break;
-                    case 2:
-                        s0 = get_leq_8_bits(mp, 6);
-                        s1 = s0;
-                        s2 = s0;
-                        break;
-                    case 3:
-                        s0 = get_leq_8_bits(mp, 6); 
-                        s1 = get_leq_8_bits(mp, 6);
-                        s2 = s1;
-                        break;
-                    default:
-                        assert(0);
-                }
+
+    bita = bit_alloc;
+    scfsi = scfsi_buf;
+    for (i = sblimit2; i; i--)
+        if (*bita++)
+            switch (*scfsi++) {
+            case 0:
+                *scale++ = getbits_fast(mp, 6);
+                *scale++ = getbits_fast(mp, 6);
+                *scale++ = getbits_fast(mp, 6);
+                break;
+            case 1:
+                *scale++ = sc = getbits_fast(mp, 6);
+                *scale++ = sc;
+                *scale++ = getbits_fast(mp, 6);
+                break;
+            case 2:
+                *scale++ = sc = getbits_fast(mp, 6);
+                *scale++ = sc;
+                *scale++ = sc;
+                break;
+            default:   /* case 3 */
+                *scale++ = getbits_fast(mp, 6);
+                *scale++ = sc = getbits_fast(mp, 6);
+                *scale++ = sc;
+                break;
             }
-            si->scalefactor[i][ch][0] = s0;
-            si->scalefactor[i][ch][1] = s1;
-            si->scalefactor[i][ch][2] = s2;
-        }
-    }
+
 }
 
 static void
-II_step_two(PMPSTR mp, sideinfo_layer_II* si, struct frame *fr, int gr, real fraction[2][4][SBLIMIT])
+II_step_two(PMPSTR mp, unsigned int *bit_alloc, real fraction[2][4][SBLIMIT], int *scale,
+            struct frame *fr, int x1)
 {
-    struct al_table2 const *alloc1 = fr->alloc;
+    int     i, j, k, ba;
+    int     stereo = fr->stereo;
     int     sblimit = fr->II_sblimit;
-    int     jsbound = (fr->mode == MPG_MD_JOINT_STEREO) ? (fr->mode_ext << 2) + 4 : fr->II_sblimit;
-    int     i, ch, nch = fr->stereo;
-    double  cm, r0, r1, r2;
+    int     jsbound = fr->jsbound;
+    struct al_table2 const *alloc2, *alloc1 = fr->alloc;
+    unsigned int *bita = bit_alloc;
+    int     d1, step;
 
-    for (i = 0; i < jsbound; ++i) {
-        short   step = alloc1->bits;
-        for (ch = 0; ch < nch; ++ch) {
-            unsigned char ba = si->allocation[i][ch];
+    for (i = 0; i < jsbound; i++, alloc1 += (1 << step)) {
+        step = alloc1->bits;
+        for (j = 0; j < stereo; j++) {
+            ba = *bita++;
             if (ba) {
-                unsigned char x1 = si->scalefactor[i][ch][gr];
-                struct al_table2 const *alloc2 = alloc1 + ba;
-                short   k = alloc2->bits;
-                short   d1 = alloc2->d;
-                assert( k <= 16 );
-                k = (k <= 16) ? k : 16;
-                assert( x1 < 64 );
-                x1 = (x1 < 64) ? x1 : 63;
-                if (d1 < 0) {
-                    int v0 = getbits(mp, k);
-                    int v1 = getbits(mp, k);
-                    int v2 = getbits(mp, k);
-                    cm = muls[k][x1];
-                    r0 = (v0 + d1) * cm;
-                    r1 = (v1 + d1) * cm;
-                    r2 = (v2 + d1) * cm;
+                k = (alloc2 = alloc1 + ba)->bits;
+                if ((d1 = alloc2->d) < 0) {
+                    real    cm = muls[k][scale[x1]];
+                    fraction[j][0][i] = ((real) ((int) getbits(mp, k) + d1)) * cm;
+                    fraction[j][1][i] = ((real) ((int) getbits(mp, k) + d1)) * cm;
+                    fraction[j][2][i] = ((real) ((int) getbits(mp, k) + d1)) * cm;
                 }
                 else {
-                    unsigned int idx = getbits(mp, k);
-                    unsigned char *tab = grp_table_select(d1, idx);
-                    unsigned char k0 = tab[0];
-                    unsigned char k1 = tab[1];
-                    unsigned char k2 = tab[2];
-                    r0 = muls[k0][x1];
-                    r1 = muls[k1][x1];
-                    r2 = muls[k2][x1];
+                    static int *table[] = { 0, 0, 0, grp_3tab, 0, grp_5tab, 0, 0, 0, grp_9tab };
+                    unsigned int idx, *tab, m = scale[x1];
+                    idx = (unsigned int) getbits(mp, k);
+                    tab = (unsigned int *) (table[d1] + idx + idx + idx);
+                    fraction[j][0][i] = muls[*tab++][m];
+                    fraction[j][1][i] = muls[*tab++][m];
+                    fraction[j][2][i] = muls[*tab][m];
                 }
-                fraction[ch][0][i] = (real) r0;
-                fraction[ch][1][i] = (real) r1;
-                fraction[ch][2][i] = (real) r2;
+                scale += 3;
             }
-            else {
-                fraction[ch][0][i] = fraction[ch][1][i] = fraction[ch][2][i] = 0.0;
-            }
+            else
+                fraction[j][0][i] = fraction[j][1][i] = fraction[j][2][i] = 0.0;
         }
-        alloc1 += (1 << step);
     }
 
-    for (i = jsbound; i < sblimit; i++) {
-        short   step = alloc1->bits;
-        unsigned char ba = si->allocation[i][0];
+    for (i = jsbound; i < sblimit; i++, alloc1 += (1 << step)) {
+        step = alloc1->bits;
+        bita++;         /* channel 1 and channel 2 bitalloc are the same */
+        ba = *bita++;
         if (ba) {
-            struct al_table2 const *alloc2 = alloc1 + ba;
-            short   k = alloc2->bits;
-            short   d1 = alloc2->d;
-            assert( k <= 16 );
-            k = (k <= 16) ? k : 16;
-            if (d1 < 0) {
-                int v0 = getbits(mp, k);
-                int v1 = getbits(mp, k);
-                int v2 = getbits(mp, k);
-                for (ch = 0; ch < nch; ++ch) {
-                    unsigned char x1 = si->scalefactor[i][ch][gr];
-                    assert( x1 < 64 );
-                    x1 = (x1 < 64) ? x1 : 63;
-                    cm = muls[k][x1];
-                    r0 = (v0 + d1) * cm;
-                    r1 = (v1 + d1) * cm;
-                    r2 = (v2 + d1) * cm;
-                    fraction[ch][0][i] = (real) r0;
-                    fraction[ch][1][i] = (real) r1;
-                    fraction[ch][2][i] = (real) r2;
-                }
+            k = (alloc2 = alloc1 + ba)->bits;
+            if ((d1 = alloc2->d) < 0) {
+                real    cm;
+                cm = muls[k][scale[x1 + 3]];
+                fraction[1][0][i] = (fraction[0][0][i] = (real) ((int) getbits(mp, k) + d1)) * cm;
+                fraction[1][1][i] = (fraction[0][1][i] = (real) ((int) getbits(mp, k) + d1)) * cm;
+                fraction[1][2][i] = (fraction[0][2][i] = (real) ((int) getbits(mp, k) + d1)) * cm;
+                cm = muls[k][scale[x1]];
+                fraction[0][0][i] *= cm;
+                fraction[0][1][i] *= cm;
+                fraction[0][2][i] *= cm;
             }
             else {
-                unsigned int idx = getbits(mp, k);
-                unsigned char *tab = grp_table_select(d1, idx);
-                unsigned char k0 = tab[0];
-                unsigned char k1 = tab[1];
-                unsigned char k2 = tab[2];
-                for (ch = 0; ch < nch; ++ch) {
-                    unsigned char x1 = si->scalefactor[i][ch][gr];
-                    assert( x1 < 64 );
-                    x1 = (x1 < 64) ? x1 : 63;
-                    r0 = muls[k0][x1];
-                    r1 = muls[k1][x1];
-                    r2 = muls[k2][x1];
-                    fraction[ch][0][i] = (real) r0;
-                    fraction[ch][1][i] = (real) r1;
-                    fraction[ch][2][i] = (real) r2;
-                }
+                static int *table[] = { 0, 0, 0, grp_3tab, 0, grp_5tab, 0, 0, 0, grp_9tab };
+                unsigned int idx, *tab, m1, m2;
+                m1 = scale[x1];
+                m2 = scale[x1 + 3];
+                idx = (unsigned int) getbits(mp, k);
+                tab = (unsigned int *) (table[d1] + idx + idx + idx);
+                fraction[0][0][i] = muls[*tab][m1];
+                fraction[1][0][i] = muls[*tab++][m2];
+                fraction[0][1][i] = muls[*tab][m1];
+                fraction[1][1][i] = muls[*tab++][m2];
+                fraction[0][2][i] = muls[*tab][m1];
+                fraction[1][2][i] = muls[*tab][m2];
             }
+            scale += 6;
         }
         else {
-            fraction[0][0][i] = fraction[0][1][i] = fraction[0][2][i] = 0.0;
-            fraction[1][0][i] = fraction[1][1][i] = fraction[1][2][i] = 0.0;
+            fraction[0][0][i] = fraction[0][1][i] = fraction[0][2][i] =
+                fraction[1][0][i] = fraction[1][1][i] = fraction[1][2][i] = 0.0;
         }
-        alloc1 += (1 << step);
+/* 
+   should we use individual scalefac for channel 2 or
+   is the current way the right one , where we just copy channel 1 to
+   channel 2 ?? 
+   The current 'strange' thing is, that we throw away the scalefac
+   values for the second channel ...!!
+-> changed .. now we use the scalefac values of channel one !! 
+*/
     }
-    if (sblimit > fr->down_sample_sblimit) {
-        sblimit = fr->down_sample_sblimit; 
-    }
-    for (ch = 0; ch < nch; ++ch) {
-        for (i = sblimit; i < SBLIMIT; ++i) {
-            fraction[ch][0][i] = fraction[ch][1][i] = fraction[ch][2][i] = 0.0;
-        }
-    }
+
+/*  if(sblimit > (fr->down_sample_sblimit) ) */
+/*    sblimit = fr->down_sample_sblimit; */
+
+    for (i = sblimit; i < SBLIMIT; i++)
+        for (j = 0; j < stereo; j++)
+            fraction[j][0][i] = fraction[j][1][i] = fraction[j][2][i] = 0.0;
+
 }
 
 static void
@@ -355,40 +277,33 @@ II_select_table(struct frame *fr)
 
 
 int
-decode_layer2_sideinfo(PMPSTR mp)
+do_layer2(PMPSTR mp, unsigned char *pcm_sample, int *pcm_point)
+/*int do_layer2(struct frame *fr,int outmode,struct audio_info_struct *ai) */
 {
-    (void) mp;
-    /* FIXME: extract side information and check values */
-    return 0;
-}
-
-int
-decode_layer2_frame(PMPSTR mp, unsigned char *pcm_sample, int *pcm_point)
-{
+    int     clip = 0;
+    int     i, j;
     real    fraction[2][4][SBLIMIT]; /* pick_table clears unused subbands */
-    sideinfo_layer_II si;
+    unsigned int bit_alloc[64];
+    int     scale[192];
     struct frame *fr = &(mp->fr);
+    int     stereo = fr->stereo;
     int     single = fr->single;
-    int     i, j, clip = 0;
 
     II_select_table(fr);
-    II_step_one(mp, &si, fr);
+    fr->jsbound = (fr->mode == MPG_MD_JOINT_STEREO) ? (fr->mode_ext << 2) + 4 : fr->II_sblimit;
 
-    if (fr->stereo == 1 || single == 3)
+    if (stereo == 1 || single == 3)
         single = 0;
 
-    if (single >= 0) {
-        for (i = 0; i < SCALE_BLOCK; i++) {
-            II_step_two(mp, &si, fr, i >> 2, fraction);
-            for (j = 0; j < 3; j++) {
+    II_step_one(mp, bit_alloc, scale, fr);
+
+    for (i = 0; i < SCALE_BLOCK; i++) {
+        II_step_two(mp, bit_alloc, fraction, scale, fr, i >> 2);
+        for (j = 0; j < 3; j++) {
+            if (single >= 0) {
                 clip += synth_1to1_mono(mp, fraction[single][j], pcm_sample, pcm_point);
             }
-        }
-    }
-    else {
-        for (i = 0; i < SCALE_BLOCK; i++) {
-            II_step_two(mp, &si, fr, i >> 2, fraction);
-            for (j = 0; j < 3; j++) {
+            else {
                 int     p1 = *pcm_point;
                 clip += synth_1to1(mp, fraction[0][j], 0, pcm_sample, &p1);
                 clip += synth_1to1(mp, fraction[1][j], 1, pcm_sample, pcm_point);

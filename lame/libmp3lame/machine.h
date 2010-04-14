@@ -141,7 +141,7 @@ typedef float FLOAT;
 # endif
 #endif
 
-#ifndef FLOAT8
+#ifndef FLOAT8 
 typedef double FLOAT8;
 # ifdef DBL_MAX
 #  define FLOAT8_MAX DBL_MAX
@@ -158,6 +158,7 @@ typedef double FLOAT8;
 
 /* sample_t must be floating point, at least 32 bits */
 typedef FLOAT sample_t;
+typedef sample_t stereo_t[2];
 
 #define dimension_of(array) (sizeof(array)/sizeof(array[0]))
 #define beyond(array) (array+dimension_of(array))
@@ -169,7 +170,7 @@ typedef FLOAT sample_t;
  : (fabs((a)-(b)) <= (fabs(b) * 1e-6f)))
 #else
 #define EQ(a,b) (fabs((a)-(b))<1E-37)
-#endif
+#endif 
 
 #define NEQ(a,b) (!EQ(a,b))
 

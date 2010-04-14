@@ -44,7 +44,7 @@
 #include "util.h"
 #include "fft.h"
 
-#include "vector/lame_intrin.h"
+
 
 
 
@@ -147,7 +147,6 @@ fht(FLOAT * fz, int n)
     } while (k4 < n);
 }
 
-
 static const unsigned char rv_tbl[] = {
     0x00, 0x80, 0x40, 0xc0, 0x20, 0xa0, 0x60, 0xe0,
     0x10, 0x90, 0x50, 0xd0, 0x30, 0xb0, 0x70, 0xf0,
@@ -192,7 +191,7 @@ static const unsigned char rv_tbl[] = {
 
 void
 fft_short(lame_internal_flags const *const gfc,
-          FLOAT x_real[3][BLKSIZE_s], int chn, const sample_t *const buffer[2])
+          FLOAT x_real[3][BLKSIZE_s], int chn, const sample_t * buffer[2])
 {
     int     i;
     int     j;
@@ -244,7 +243,7 @@ fft_short(lame_internal_flags const *const gfc,
 
 void
 fft_long(lame_internal_flags const *const gfc,
-         FLOAT x[BLKSIZE], int chn, const sample_t *const buffer[2])
+         FLOAT x[BLKSIZE], int chn, const sample_t * buffer[2])
 {
     int     i;
     int     jj = BLKSIZE / 8 - 1;
@@ -308,7 +307,6 @@ init_fft(lame_internal_flags * const gfc)
     for (i = 0; i < BLKSIZE_s / 2; i++)
         window_s[i] = 0.5 * (1.0 - cos(2.0 * PI * (i + 0.5) / BLKSIZE_s));
 
-    gfc->fft_fht = fht;
 #ifdef HAVE_NASM
     if (gfc->CPU_features.AMD_3DNow) {
         gfc->fft_fht = fht_3DN;
@@ -316,14 +314,9 @@ init_fft(lame_internal_flags * const gfc)
     else if (gfc->CPU_features.SSE) {
         gfc->fft_fht = fht_SSE;
     }
-    else {
+    else
+#endif
+    {
         gfc->fft_fht = fht;
     }
-#else
-#ifdef HAVE_XMMINTRIN_H
-#ifdef MIN_ARCH_SSE
-    gfc->fft_fht = fht_SSE2;
-#endif
-#endif
-#endif
 }

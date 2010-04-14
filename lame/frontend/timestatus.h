@@ -22,25 +22,13 @@
 #ifndef LAME_TIMESTATUS_H
 #define LAME_TIMESTATUS_H
 
-#if defined(__cplusplus)
-extern "C" {
-#endif
-
 void    encoder_progress_begin( lame_global_flags const*    gfp
                               , char const*                 inpath
                               , char const*                 outpath );
 void    encoder_progress( lame_global_flags const* gfp );
 void    encoder_progress_end(lame_global_flags const* gfp);
 
-struct DecoderProgress;
-typedef struct DecoderProgress* DecoderProgress;
-
-DecoderProgress decoder_progress_init(unsigned long n, int framesize);
-void    decoder_progress(DecoderProgress dp, const mp3data_struct *, int iread);
-void    decoder_progress_finish(DecoderProgress dp);
-
-#if defined(__cplusplus)
-}
-#endif
+void    decoder_progress(const mp3data_struct * const);
+void    decoder_progress_finish();
 
 #endif /* LAME_TIMESTATUS_H */

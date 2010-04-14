@@ -29,9 +29,10 @@ INCLUDES = @INCLUDES@ -I$(top_srcdir)/mpglib -I$(top_builddir)
 DEFS = @DEFS@ @CONFIG_DEFS@
 
 EXTRA_DIST = \
-	lame.rc \
+	libmp3lame_vc6.dsp \
+	libmp3lame_dll_vc6.dsp \
 	libmp3lame_vc8.vcproj \
-	vbrquantize.h \
+	lame.rc \
 	logoe.ico
 
 libmp3lame_la_SOURCES = \
@@ -66,7 +67,6 @@ noinst_HEADERS= \
 	l3side.h \
 	lame-analysis.h \
 	lame_global_flags.h \
-	lameerror.h \
 	machine.h \
 	newmdct.h \
 	psymodel.h \

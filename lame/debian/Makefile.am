@@ -7,14 +7,12 @@ EXTRA_DIST = \
 	compat \
 	control \
 	copyright \
-	libmp3lame-dev.docs \
-	libmp3lame-dev.install \
-	libmp3lame0.install \
+	libmp3lame0-dev.docs \
+	libmp3lame0-dev.files \
+	libmp3lame0.files \
 	lame.docs \
-	lame.install \
-	lame.manpages \
-	rules \
-	watch
+	lame.files \
+	rules
 
 dist-hook:
 	chmod +x $(distdir)/rules

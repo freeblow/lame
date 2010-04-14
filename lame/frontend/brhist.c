@@ -25,6 +25,8 @@
 #include <config.h>
 #endif
 
+#ifdef BRHIST
+
 /* basic #define's */
 
 #ifndef BRHIST_WIDTH
@@ -59,7 +61,7 @@
 
 extern Console_IO_t Console_IO;
 
-static struct brhist_struct {
+static struct {
     int     vbr_bitrate_min_index;
     int     vbr_bitrate_max_index;
     int     kbps[BRHIST_WIDTH];
@@ -383,4 +385,4 @@ brhist_jump_back(void)
  * But one day, for one kind of terminal, that was not enough.)
  */
 
-
+#endif /* ifdef BRHIST */

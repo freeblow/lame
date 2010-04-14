@@ -38,49 +38,7 @@
 #include "util.h"
 
 
-
-#if DEPRECATED_OR_OBSOLETE_CODE_REMOVED
-/*
- * OBSOLETE:
- * - kept to let it link
- * - forward declaration to silence compiler
- */
-int CDECL lame_decode_init(void);
-int CDECL lame_decode(
-        unsigned char *  mp3buf,
-        int              len,
-        short            pcm_l[],
-        short            pcm_r[] );
-int CDECL lame_decode_headers(
-        unsigned char*   mp3buf,
-        int              len,
-        short            pcm_l[],
-        short            pcm_r[],
-        mp3data_struct*  mp3data );
-int CDECL lame_decode1(
-        unsigned char*  mp3buf,
-        int             len,
-        short           pcm_l[],
-        short           pcm_r[] );
-int CDECL lame_decode1_headers(
-        unsigned char*   mp3buf,
-        int              len,
-        short            pcm_l[],
-        short            pcm_r[],
-        mp3data_struct*  mp3data );
-int CDECL lame_decode1_headersB(
-        unsigned char*   mp3buf,
-        int              len,
-        short            pcm_l[],
-        short            pcm_r[],
-        mp3data_struct*  mp3data,
-        int              *enc_delay,
-        int              *enc_padding );
-int CDECL lame_decode_exit(void);
-#endif
-
-
-static MPSTR   mp;
+static MPSTR   mp; /* ugly, used by obsolete lame_decode functions */
 
 int
 lame_decode_exit(void)
@@ -364,7 +322,7 @@ hip_decode1_unclipped(hip_t hip, unsigned char *buffer, size_t len, sample_t pcm
 }
 
 /*
- * For hip_decode:  return code
+ * For lame_decode:  return code
  *  -1     error
  *   0     ok, but need more data before outputing any samples
  *   n     number of samples output.  Will be at most one frame of
@@ -445,29 +403,6 @@ void hip_set_pinfo(hip_t hip, plotting_data* pinfo)
 {
     if (hip) {
         hip->pinfo = pinfo;
-    }
-}
-
-
-
-void hip_set_errorf(hip_t hip, lame_report_function func)
-{
-    if (hip) {
-        hip->report_err = func;
-    }
-}
-
-void hip_set_debugf(hip_t hip, lame_report_function func)
-{
-    if (hip) {
-        hip->report_dbg = func;
-    }
-}
-
-void hip_set_msgf  (hip_t hip, lame_report_function func)
-{
-    if (hip) {
-        hip->report_msg = func;
     }
 }
 

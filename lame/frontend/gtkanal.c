@@ -152,7 +152,7 @@ gtkmakeframe(void)
     gfc->pinfo = pinfo;
     hip_set_pinfo(hip, pinfo);
 
-    if (is_mpeg_file_format(global_reader.input_format)) {
+    if (is_mpeg_file_format(input_format)) {
         iread = get_audio16(gfp, Buffer);
 
 
@@ -256,7 +256,7 @@ plot_frame(void)
     plotting_data *pplot2 = NULL;
 
     double  en, samp;
-    /*int     sampindex, version = 0;*/
+    int     sampindex, version = 0;
     int     barthick;
     static int firstcall = 1;
     static GdkColor *barcolor, *color, *grcolor[2];
@@ -315,7 +315,7 @@ plot_frame(void)
         samp = pplot1->sampfreq;
     else
         samp = 1;
-    /*sampindex = SmpFrqIndex((long) samp, &version);*/
+    sampindex = SmpFrqIndex((long) samp, &version);
 
     ch = gtkinfo.chflag;
 
@@ -1448,11 +1448,11 @@ gtkcontrol(lame_global_flags * gfp2, char *inPath)
     gfc = gfp->internal_flags;
 
     /* set some global defaults/variables */
-    gtkinfo.filetype = is_mpeg_file_format(global_reader.input_format) ? 1 : 0;
+    gtkinfo.filetype = is_mpeg_file_format(input_format) ? 1 : 0;
     gtkinfo.msflag = 0;
     gtkinfo.chflag = 0;
     gtkinfo.kbflag = 0;
-    gtkinfo.flag123 = is_mpeg_file_format(global_reader.input_format) ? 1 : 0; /* MP3 file=use mpg123 output */
+    gtkinfo.flag123 = is_mpeg_file_format(input_format) ? 1 : 0; /* MP3 file=use mpg123 output */
     gtkinfo.pupdate = 0;
     gtkinfo.avebits = 0;
     gtkinfo.maxbits = 0;
