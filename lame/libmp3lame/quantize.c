@@ -249,16 +249,9 @@ init_outer_loop(lame_internal_flags const *gfc, gr_info * const cod_info)
     cod_info->scalefac_scale = 0;
     cod_info->count1table_select = 0;
     cod_info->part2_length = 0;
-    if (cfg->samplerate_out <= 8000) {
-      cod_info->sfb_lmax = 17;
-      cod_info->sfb_smin = 9;
-      cod_info->psy_lmax = 17;
-    }
-    else {
-      cod_info->sfb_lmax = SBPSY_l;
-      cod_info->sfb_smin = SBPSY_s;
-      cod_info->psy_lmax = gfc->sv_qnt.sfb21_extra ? SBMAX_l : SBPSY_l;
-    }
+    cod_info->sfb_lmax = SBPSY_l;
+    cod_info->sfb_smin = SBPSY_s;
+    cod_info->psy_lmax = gfc->sv_qnt.sfb21_extra ? SBMAX_l : SBPSY_l;
     cod_info->psymax = cod_info->psy_lmax;
     cod_info->sfbmax = cod_info->sfb_lmax;
     cod_info->sfbdivide = 11;
@@ -281,18 +274,10 @@ init_outer_loop(lame_internal_flags const *gfc, gr_info * const cod_info)
             cod_info->sfb_smin = 3;
             cod_info->sfb_lmax = cfg->mode_gr * 2 + 4;
         }
-        if (cfg->samplerate_out <= 8000) {
-            cod_info->psymax
-                = cod_info->sfb_lmax
-                + 3 * (9 - cod_info->sfb_smin);
-            cod_info->sfbmax = cod_info->sfb_lmax + 3 * (9 - cod_info->sfb_smin);
-        }
-        else {
-            cod_info->psymax
-                = cod_info->sfb_lmax
-                + 3 * ((gfc->sv_qnt.sfb21_extra ? SBMAX_s : SBPSY_s) - cod_info->sfb_smin);
-            cod_info->sfbmax = cod_info->sfb_lmax + 3 * (SBPSY_s - cod_info->sfb_smin);
-        }
+        cod_info->psymax
+            = cod_info->sfb_lmax
+            + 3 * ((gfc->sv_qnt.sfb21_extra ? SBMAX_s : SBPSY_s) - cod_info->sfb_smin);
+        cod_info->sfbmax = cod_info->sfb_lmax + 3 * (SBPSY_s - cod_info->sfb_smin);
         cod_info->sfbdivide = cod_info->sfbmax - 18;
         cod_info->psy_lmax = cod_info->sfb_lmax;
         /* re-order the short blocks, for more efficient encoding below */
@@ -1594,15 +1579,12 @@ VBR_new_prepare(lame_internal_flags * gfc,
     int     maximum_framebits;
 
     if (!cfg->free_format) {
-        int   act_resv;
         eov->bitrate_index = cfg->vbr_max_bitrate_index;
         (void) ResvFrameBegin(gfc, &avg);
         *max_resv = gfc->sv_enc.ResvMax;
-        act_resv = Min(gfc->sv_enc.ResvSize, gfc->sv_enc.ResvMax);
 
         get_framebits(gfc, frameBits);
         maximum_framebits = frameBits[cfg->vbr_max_bitrate_index];
-        maximum_framebits -= act_resv * 0.5; /* don't use all at once */
     }
     else {
         eov->bitrate_index = 0;
