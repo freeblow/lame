@@ -124,7 +124,7 @@ get_lame_very_short_version(void)
 #elif LAME_RELEASE_VERSION && (LAME_PATCH_VERSION > 0)
 #define P "r"
 #else
-#define P " "
+#define P ""
 #endif
     static /*@observer@ */ const char *const str =
 #if (LAME_PATCH_VERSION > 0)
