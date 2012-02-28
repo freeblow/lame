@@ -60,6 +60,7 @@ char   *strchr(), *strrchr();
 #include "util.h"
 #include "bitstream.h"
 
+#define lame_calloc(TYPE, COUNT) ((TYPE*)calloc(COUNT, sizeof(TYPE)))
 
 static const char *const genre_names[] = {
     /*

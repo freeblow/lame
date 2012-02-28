@@ -40,7 +40,6 @@
 #include "lame-analysis.h"
 #include "bitstream.h"
 #include "VbrTag.h"
-#include "quantize.h"
 #include "quantize_pvt.h"
 
 
@@ -486,7 +485,7 @@ lame_encode_mp3_frame(       /* Output */
     *   Stage 4: quantization loop          *
     ****************************************/
 
-    {
+    if (cfg->vbr == vbr_off || cfg->vbr == vbr_abr) {
         static FLOAT const fircoef[9] = {
             -0.0207887 * 5, -0.0378413 * 5, -0.0432472 * 5, -0.031183 * 5,
             7.79609e-18 * 5, 0.0467745 * 5, 0.10091 * 5, 0.151365 * 5,
@@ -516,23 +515,7 @@ lame_encode_mp3_frame(       /* Output */
             }
         }
     }
-    switch (cfg->vbr)
-    {
-    default:
-    case vbr_off:
-        CBR_iteration_loop(gfc, (const FLOAT (*)[2])pe_use, ms_ener_ratio, masking);
-        break;
-    case vbr_abr:
-        ABR_iteration_loop(gfc, (const FLOAT (*)[2])pe_use, ms_ener_ratio, masking);
-        break;
-    case vbr_rh:
-        VBR_old_iteration_loop(gfc, (const FLOAT (*)[2])pe_use, ms_ener_ratio, masking);
-        break;
-    case vbr_mt:
-    case vbr_mtrh:
-        VBR_new_iteration_loop(gfc, (const FLOAT (*)[2])pe_use, ms_ener_ratio, masking);
-        break;
-    }
+    gfc->iteration_loop(gfc, (const FLOAT (*)[2])pe_use, ms_ener_ratio, masking);
 
 
     /****************************************
