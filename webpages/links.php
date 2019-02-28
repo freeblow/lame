@@ -287,6 +287,11 @@ which supports or uses LAME:</a></h3>
        <a href="https://www.batch-mp3-converter.com">Batch MP3 Audio Converter</a>
        (Win) is a featureful LAME batch encoding and decoding frontend.
     </li>
+    
+    <li>
+       <a href="https://www.batch-mp3-concatenator.com">Batch MP3 Audio 
+       Concatenator</a> (Win) is a batch MP3 file merger.
+    </li>
 
     <li>
         <a href="http://www.fridgesoft.de/harddiskogg.php">Hard Disk Ogg</a> 
@@ -497,8 +502,8 @@ size="-1">^</font></sup></a> <a name="Binaries">LAME Binaries:</a></h3>
     </li>
 
     <li>
-        The <a href="http://www.finkproject.org/">FINK</a> project provides LAME
-        binaries compiled for MacOS X.
+        The <a href="http://pdb.finkproject.org/pdb/package.php/lame">FINK</a> 
+        project provides LAME binaries compiled for MacOS X.
     </li>
 
 </ul>
