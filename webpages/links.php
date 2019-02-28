@@ -284,9 +284,8 @@ which supports or uses LAME:</a></h3>
     </li>
     
     <li>
-       <a href="https://en.stateful-audio-converter.frdafonseca.com/index.html">
-       Stateful Audio Converter</a> (Win) is a LAME encoding and decoding 
-       frontend with a wizard interface that does batch processing.
+       <a href="https://www.batch-mp3-converter.com">Batch MP3 Audio Converter</a>
+       (Win) is a featureful LAME batch encoding and decoding frontend.
     </li>
 
     <li>
