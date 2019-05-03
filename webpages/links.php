@@ -258,6 +258,11 @@ which supports or uses LAME:</a></h3>
 <ul>
 
     <li>
+        <a href="http://www.winamp.com">WinAmp</a> (Win) probably the most
+        famous audio player. Can rip CDs and encode files using LAME.
+    </li>
+
+    <li>
         <a href="http://www.foobar2000.org">Foobar2000</a> (Win) an audio
         player with spartan interface but lots of components and an almost
         fanatical focus on audio quality.
@@ -333,12 +338,6 @@ which supports or uses LAME:</a></h3>
 LAME:</a></h3>
 
 <ul>
-
-    <li>
-        <a href="http://www.winamp.com">WinAmp</a> (Win) probably the most
-        famous audio player. Can rip CDs and encode files using Lame, but only 
-        in the Pro (paid) version.
-    </li>
 
     <li>
         <a href="https://www.steinberg.net/en/products/wavelab/start.html">WaveLab</a> 
@@ -436,7 +435,7 @@ LAME:</a></h3>
 <!--<h3><a href="#Contents"><sup><font size="-1">^</font></sup></a> <a name="Shame">
 HALL OF SHAME</a></h3>
 
-<h4>The following companies/products have been known to infringe Lame copyright
+<h4>The following companies/products have been known to infringe LAME copyright
 by not respecting the terms and conditions of our license.</h4>
 
 <ul>
@@ -530,7 +529,7 @@ size="-1">^</font></sup></a> <a name="Binaries">LAME Binaries:</a></h3>
     </li>
 
     <li>
-        <a href="http://www2.arnes.si/~mmilut/Lame.html">Lame Binary Distribution
+        <a href="http://www2.arnes.si/~mmilut/Lame.html">LAME Binary Distribution
         Point</a> - outdated, but with compiles for several obscure systems like 
         HP-UX, Irix, VMS, Tru64, etc.
     </li>
@@ -575,7 +574,7 @@ size="-1">^</font></sup></a> <a name="Alternatives">Other MP3 Encoders:</a></h3>
         <a href="http://www.rarewares.org/rrw/mp3enc.php">FhG MP3enc</a> 3.1. The
         gold standard of encoders. All other encoders strive to sound this good.
         Demo version only encodes up to 30 seconds.<br />
-        <i>Update: according to several listening tests, Lame already surpassed
+        <i>Update: according to several listening tests, LAME already surpassed
         FhG encoders in quality at most bitrates. :-)</i>
     </li>
 
