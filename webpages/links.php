@@ -87,6 +87,11 @@ which supports or uses LAME:</a></h3>
         extracts useful information from MP3s &amp; other multimedia file formats.
         Reads LAME tags.
     </li>
+    
+    <li>
+        <a href="https://github.com/chrisstaite/lameenc">lameenc</a> (Python) A 
+        Python module to access the LAME encoding functions.
+    </li>
 
     <li>
         <a href="http://rip.sourceforge.net">rip</a> (Perl) Script for ripping
@@ -310,9 +315,9 @@ which supports or uses LAME:</a></h3>
     </li>
   
     <li>
-        <a href="https://en.slideshow-creator.frdafonseca.com/index.html">
-        Slideshow Creator</a> (Win) a program that creates slide show videos 
-        from sequences of images. Can use LAME to add a soundtrack.
+        <a href="https://www.batch-slideshow-creator.com">Batch Slideshow 
+        Creator</a> (Win) a program that creates slide show videos from 
+        sequences of images. Can use LAME to add a soundtrack.
     </li>
 
     <li>
