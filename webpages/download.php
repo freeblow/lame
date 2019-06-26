@@ -27,7 +27,7 @@
 </div>
 
 <p>
-    LAME is only distribued in source code form. For binaries and GUI based
+    LAME is only distributed in source code form. For binaries and GUI based
     programs which can use LAME (or include fully licensed versions of LAME),
     check the <a href="links.php">LAME related links</a>. All software from the
     LAME project can be found in the project's <a
