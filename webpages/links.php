@@ -204,11 +204,6 @@ etc.): </a></b></p>
 <ul>
 
     <li>
-        <a href="http://cdex.mu/">CDex</a> Ripper &amp; encoder, includes LAME 
-        binaries (the Blade compatible dll).
-    </li>
-
-    <li>
         <a href="http://www.rarewares.org/mp3-lamedrop.php">LameDropXPd</a>
         OggDrop style drag'n'drop frontend.
     </li>
@@ -473,12 +468,6 @@ size="-1">^</font></sup></a> <a name="Binaries">LAME Binaries:</a></h3>
         functionality.
    </li>
 
-   <li>
-        <a href="http://lame.buanzo.com.ar/">Arturo "Buanzo" Busleiman</a>
-        offers up-to-date Windows and Mac OS LAME compiles on his
-        Argentina-hosted site.
-   </li>
-
 </ul>
 
 <h4>Linux:</h4>
@@ -512,7 +501,7 @@ size="-1">^</font></sup></a> <a name="Binaries">LAME Binaries:</a></h3>
 
 </ul>
 
-<h4>Solaris:</h4>
+<h4>Etc.:</h4>
 
 <ul>
 
@@ -521,12 +510,6 @@ size="-1">^</font></sup></a> <a name="Binaries">LAME Binaries:</a></h3>
         provides up-to-date binaries for several versions of Sun Solaris, both
         SPARC and x86 architectures.
     </li>
-
-</ul>
-
-<h4>Etc.:</h4>
-
-<ul>
 
     <li>
         <a href="http://www.perzl.org/aix/index.php?n=Main.Lame">Michael Perlz</a>
@@ -538,12 +521,6 @@ size="-1">^</font></sup></a> <a name="Binaries">LAME Binaries:</a></h3>
         Point</a> - outdated, but with compiles for several obscure systems like 
         HP-UX, Irix, VMS, Tru64, etc.
     </li>
-
-</ul>
-
-<h4>Amiga:</h4>
-
-<ul>
 
     <li>
         For those of you that just won't give up on your Amiga, check <a
@@ -590,7 +567,7 @@ size="-1">^</font></sup></a> <a name="Alternatives">Other MP3 Encoders:</a></h3>
 
     <li>
         <a href="http://www.rarewares.org/rrw/fastencc.php">FhG Fastencc</a> this
-        "free" encoder was created with libraries stolen from Fraunhofer. It's
+        "free" encoder was created with libraries stolen from Fraunhofer. It is
         the faster brother of MP3enc, and also the only FhG encoder to offer VBR
         encoding. The stereo encoding is buggy and quality is not on par with 
         MP3enc or LAME.
@@ -631,7 +608,7 @@ size="-1">^</font></sup></a> <a name="Alternatives">Other MP3 Encoders:</a></h3>
 
     <li>
         <a href="http://www.rarewares.org/rrw/">ReallyRareWares</a> is an online
-        museum preserving obsolete and defunct encoders for several audio
+        museum preserving obsolete and forgotten encoders for several audio
         formats, including old LAME versions and obscure MP3 encoders (most of
         these encoders are simple compiles of the dist10 MPEG reference sources
         with minimal tweaks, though).
